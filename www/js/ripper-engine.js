@@ -57,6 +57,35 @@ class CyberRipperEngine {
             const input = rawInput.trim();
             if (!input) throw new Error('Target stream URL or query cannot be empty.');
 
+            // -- TAURI NATIVE PATH --------------------------------------------
+            const isTauri = typeof window.__TAURI__ !== 'undefined';
+            if (isTauri) {
+                this.log('NATIVE YT-DLP ENGINE DETECTED — USING SYSTEM RIPPER...', 'system');
+                this.setProgress(10);
+                try {
+                    const result = await window.__TAURI__.core.invoke('rip_audio_stream', { url: input, quality });
+                    this.setProgress(100);
+                    this.log('DOWNLOAD COMPLETE: ' + result.filePath, 'success');
+                    const fileUrl = window.__TAURI__.core.convertFileSrc(result.filePath);
+                    return {
+                        id: 'ripped-' + Date.now(),
+                        title: result.title || 'Ripped Track',
+                        artist: result.artist || 'YouTube',
+                        album: result.album || 'Cyberdeck Stream',
+                        year: result.year || '2077',
+                        duration: result.duration || 0,
+                        url: fileUrl,
+                        filePath: result.filePath,
+                        coverArt: null,
+                        isRipped: true
+                    };
+                } catch (err) {
+                    this.log('NATIVE RIPPER ERROR: ' + err, 'error');
+                    throw new Error(err);
+                }
+            }
+            // -- END TAURI NATIVE PATH ----------------------------------------
+
             this.log('INITIATING IN-APP STREAM EXTRACTOR...', 'system');
             await this.sleep(250);
 
