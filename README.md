@@ -58,7 +58,7 @@ Head over to the [**Releases**](https://github.com) section to download ready-to
 ## ⚡ STREAM RIPPER (SPOTIFY, YOUTUBE, SOUNDCLOUD)
 
 To download real 320 kbps MP3 files with complete ID3 tags and high-resolution cover art:
-1. Double-click **`Pobierz_Ze_Spotify_i_YT.bat`** on Windows (or use the built-in desktop Tauri engine).
+1. Double-click **`Download_From_Spotify_and_YT.bat`** on Windows (or use the built-in desktop Tauri engine).
 2. Paste any **Spotify**, **YouTube**, or **SoundCloud** link.
 3. The track is downloaded at 320 kbps directly into `Downloaded_Music/`.
 4. Drag & drop the `.mp3` file onto the deck, or click **`+ ADD MP3 FILES`**!
@@ -69,7 +69,7 @@ To download real 320 kbps MP3 files with complete ID3 tags and high-resolution c
 
 ### Prerequisites:
 * [Rust](https://rustup.rs/) (v1.75+)
-* Node.js (v20+) or standalone Rust compiler
+* Node.js (v22+) or standalone Rust compiler
 
 ```bash
 # 1. Install Tauri CLI

@@ -150,11 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePlayButtonState(isPlaying) {
         if (isPlaying) {
             elements.playMasterIcon.innerHTML = ICONS.pause;
-            elements.btnPlayMaster.setAttribute('title', 'Wstrzymaj (Spacja)');
+            elements.btnPlayMaster.setAttribute('title', 'Pause (Space)');
             elements.holoTurntable.classList.add('spinning');
         } else {
             elements.playMasterIcon.innerHTML = ICONS.play;
-            elements.btnPlayMaster.setAttribute('title', 'Odtwórz (Spacja)');
+            elements.btnPlayMaster.setAttribute('title', 'Play (Space)');
             elements.holoTurntable.classList.remove('spinning');
         }
     }
@@ -165,8 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.PlaylistManager.setCurrentTrack(track.id);
 
         // Update Now Playing UI
-        elements.trackLiveTitle.textContent = track.title || 'Nieznany utwór';
-        elements.trackLiveArtist.textContent = track.artist || 'Nieznany wykonawca';
+        elements.trackLiveTitle.textContent = track.title || 'Unknown Track';
+        elements.trackLiveArtist.textContent = track.artist || 'Unknown Artist';
         elements.trackLiveAlbum.textContent = `${track.album || 'NOMAD_DECK'} • ${track.year || '2077'}`;
 
         updateCoverArtDisplay();
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mode = window.PlaylistManager.cycleRepeat();
         elements.btnRepeat.classList.toggle('active', mode !== 'off');
         elements.repeatLabel.textContent = mode === 'one' ? 'LOOP 1' : mode === 'all' ? 'LOOP ALL' : 'LOOP OFF';
-        elements.btnRepeat.setAttribute('title', `Pętla: ${mode.toUpperCase()}`);
+        elements.btnRepeat.setAttribute('title', `Loop: ${mode.toUpperCase()}`);
     });
 
     // Seek bar
