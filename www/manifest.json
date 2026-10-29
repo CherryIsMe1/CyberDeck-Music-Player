@@ -1,0 +1,18 @@
+{
+  "name": "Edgerunners Audio Deck 2077",
+  "short_name": "Edgerunners",
+  "description": "Cyberpunk MP3 Audio Player with Visualizer & Playlists",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#07080C",
+  "theme_color": "#FCEE0A",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/edgerunners_logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

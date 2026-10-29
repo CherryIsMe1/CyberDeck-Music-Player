@@ -1,0 +1,1291 @@
+/* ==========================================================================
+   CYBERPUNK EDGERUNNERS 2 - OMI // SNAKE NATION THEME
+   Nomad & Arasaka Hybrid Tech, Gorilla Arms Cyberware, Snake Clan Aesthetics
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+    /* Omi (Edgerunners 2) Signature Palette */
+    --omi-green: #00FF88;         /* Omi's dark green wolf-cut & tactical badges */
+    --omi-purple: #B026FF;        /* Snake Nation purple snake tattoo & ocular iris */
+    --omi-pink: #FF1A75;          /* Omi's signature hot pink neck/face tattoo & harness */
+    --omi-blue: #0088FF;          /* Sleeveless vest & outer cyberoptics */
+    --omi-yellow: #FCEE0A;        /* High-top sneakers & Night City hazard yellow */
+    --omi-chrome: #8EA0B5;        /* Gorilla Arms metallic plating */
+
+    /* Cyber UI System Colors */
+    --cyber-dark-bg: #07090E;
+    --cyber-panel: #0D101A;
+    --cyber-panel-border: rgba(255, 26, 117, 0.28);
+    --cyber-panel-hover: #161222;
+    --cyber-text: #EDF3F7;
+    --cyber-text-dim: #8B99AE;
+
+    /* Glows */
+    --omi-green-glow: 0 0 14px rgba(0, 255, 136, 0.55);
+    --omi-purple-glow: 0 0 14px rgba(176, 38, 255, 0.55);
+    --omi-pink-glow: 0 0 16px rgba(255, 26, 117, 0.65);
+    --omi-blue-glow: 0 0 14px rgba(0, 136, 255, 0.55);
+    --cyber-accent-glow: 0 0 14px rgba(252, 238, 10, 0.55);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    background-color: var(--cyber-dark-bg);
+    color: var(--cyber-text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Background Cyber Grid & Noise */
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 10% 15%, rgba(0, 255, 136, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(255, 26, 117, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 90% 85%, rgba(176, 38, 255, 0.04) 0%, transparent 45%),
+        linear-gradient(rgba(10, 14, 23, 0.95), rgba(7, 9, 14, 0.98)),
+        repeating-linear-gradient(0deg, rgba(255, 26, 117, 0.012) 0px, rgba(255, 26, 117, 0.012) 1px, transparent 1px, transparent 24px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Scanline Effect */
+.scanlines {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0),
+        rgba(255, 255, 255, 0) 2px,
+        rgba(0, 0, 0, 0.28) 2px,
+        rgba(0, 0, 0, 0.28) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.55;
+}
+
+/* Chamfered Cyber Clip Paths */
+.cyber-cut {
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+.cyber-cut-sm {
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.hazard-bar {
+    height: 4px;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--omi-pink),
+        var(--omi-pink) 8px,
+        #000 8px,
+        #000 12px,
+        var(--omi-green) 12px,
+        var(--omi-green) 20px,
+        #000 20px,
+        #000 24px
+    );
+}
+
+/* ==========================================================================
+   TOP HEADER / TELEMETRY BAR
+   ========================================================================== */
+.header-bar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 20px;
+    background: rgba(13, 16, 26, 0.94);
+    border-bottom: 1px solid var(--cyber-panel-border);
+    backdrop-filter: blur(10px);
+}
+
+.logo-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-badge {
+    background: var(--omi-green);
+    color: #000;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 12px;
+    padding: 3px 8px;
+    letter-spacing: 1.5px;
+}
+
+.logo-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--omi-green);
+    letter-spacing: 2px;
+    text-shadow: var(--omi-green-glow);
+}
+
+.logo-title span {
+    color: var(--omi-purple);
+    text-shadow: var(--omi-purple-glow);
+}
+
+.header-telemetry {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--omi-blue);
+}
+
+.telemetry-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.telemetry-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--omi-green);
+    box-shadow: var(--omi-green-glow);
+    animation: pulse-dot 1.8s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Disc View Toggle Button (Omi Portrait vs Album Cover) */
+.btn-cover-toggle {
+    background: rgba(255, 26, 117, 0.08);
+    border: 1px solid var(--omi-pink);
+    color: var(--omi-pink);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 14px;
+    cursor: pointer;
+    letter-spacing: 1.5px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-cover-toggle:hover {
+    background: var(--omi-pink);
+    color: #000;
+    box-shadow: var(--omi-pink-glow);
+}
+
+.btn-cover-toggle.mode-album {
+    background: rgba(0, 255, 136, 0.08);
+    border-color: var(--omi-green);
+    color: var(--omi-green);
+}
+
+.btn-cover-toggle.mode-album:hover {
+    background: var(--omi-green);
+    color: #000;
+    box-shadow: var(--omi-green-glow);
+}
+
+.btn-cyber-icon {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    color: var(--omi-green);
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-cyber-icon:hover {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: var(--omi-green);
+    box-shadow: var(--omi-green-glow);
+}
+
+.btn-cyber-icon.active {
+    background: var(--omi-green);
+    color: #000;
+}
+
+/* ==========================================================================
+   MAIN WORKSPACE (3-COLUMN LAYOUT)
+   ========================================================================== */
+.main-deck {
+    position: relative;
+    z-index: 5;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr 390px;
+    gap: 12px;
+    padding: 12px 16px;
+    min-height: 0;
+}
+
+.cyber-panel {
+    background: var(--cyber-panel);
+    border: 1px solid var(--cyber-panel-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--omi-green);
+}
+
+.panel-header .header-code {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--cyber-text-dim);
+    font-size: 11px;
+}
+
+/* ==========================================================================
+   LEFT COLUMN: PLAYLISTS & IMPORTER
+   ========================================================================== */
+.sidebar-actions {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.btn-cyber-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0, 255, 136, 0.08);
+    border: 1px solid var(--omi-green);
+    color: var(--omi-green);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: 1px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cyber-block:hover {
+    background: var(--omi-green);
+    color: #000;
+    box-shadow: var(--omi-green-glow);
+}
+
+.btn-cyber-secondary {
+    background: rgba(0, 136, 255, 0.08);
+    border: 1px solid var(--omi-blue);
+    color: var(--omi-blue);
+}
+
+.btn-cyber-secondary:hover {
+    background: var(--omi-blue);
+    color: #000;
+    box-shadow: var(--omi-blue-glow);
+}
+
+.playlist-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 10px 10px 10px;
+}
+
+.playlist-section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyber-text-dim);
+    margin: 10px 4px 6px;
+    text-transform: uppercase;
+}
+
+.playlist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.playlist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.playlist-item:hover {
+    background: var(--cyber-panel-hover);
+    border-left-color: var(--omi-blue);
+    color: #FFF;
+}
+
+.playlist-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    border-left-color: var(--omi-green);
+    color: var(--omi-green);
+    box-shadow: inset 0 0 12px rgba(0, 255, 136, 0.1);
+}
+
+.playlist-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: var(--cyber-text-dim);
+}
+
+.btn-del-playlist {
+    background: transparent;
+    border: none;
+    color: var(--omi-pink);
+    cursor: pointer;
+    opacity: 0.6;
+    margin-left: 8px;
+    padding: 2px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.btn-del-playlist:hover {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   CENTER COLUMN: VISUALIZER, NOW PLAYING & EQUALIZER
+   ========================================================================== */
+.center-deck {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.visualizer-card {
+    flex: 1;
+    position: relative;
+    background: #06070B;
+    border: 1px solid var(--cyber-panel-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.visualizer-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: rgba(0, 0, 0, 0.6);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.15);
+    z-index: 2;
+}
+
+.mode-pills {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-mode-pill {
+    background: transparent;
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    color: var(--cyber-text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    padding: 3px 9px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-mode-pill:hover {
+    color: var(--omi-green);
+    border-color: var(--omi-green);
+}
+
+.btn-mode-pill.active {
+    background: var(--omi-green);
+    color: #000;
+    border-color: var(--omi-green);
+    font-weight: bold;
+    box-shadow: var(--omi-green-glow);
+}
+
+.canvas-container {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+}
+
+#cyberVisualizerCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Center Holographic Disc */
+.holo-turntable {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 144px;
+    height: 144px;
+    border-radius: 50%;
+    border: 2px dashed rgba(255, 26, 117, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    cursor: pointer;
+    box-shadow: 0 0 28px rgba(255, 26, 117, 0.35);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.holo-turntable:hover {
+    border-color: var(--omi-green);
+    box-shadow: 0 0 35px rgba(255, 26, 117, 0.6);
+}
+
+.holo-turntable.spinning {
+    animation: rotate-turntable 12s linear infinite;
+}
+
+@keyframes rotate-turntable {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.holo-cover-art {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2.5px solid var(--omi-pink);
+    box-shadow: 0 0 15px rgba(255, 26, 117, 0.4);
+    background: #090B12;
+}
+
+/* Now Playing Information Strip */
+.now-playing-strip {
+    background: rgba(13, 16, 26, 0.95);
+    border-top: 1px solid var(--cyber-panel-border);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.track-main-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.track-live-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--omi-green);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 1px;
+}
+
+.track-live-artist {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    color: var(--omi-blue);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.track-live-album {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyber-text-dim);
+}
+
+/* Equalizer Panel */
+.eq-panel {
+    background: var(--cyber-panel);
+    border: 1px solid var(--cyber-panel-border);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.eq-sliders {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.eq-band-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.eq-band-col input[type="range"] {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 18px;
+    height: 52px;
+    accent-color: var(--omi-green);
+    cursor: pointer;
+}
+
+.eq-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--cyber-text-dim);
+}
+
+.eq-presets {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.preset-select {
+    background: #07090F;
+    color: var(--omi-green);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   RIGHT COLUMN: TRACK LIST & SEARCH
+   ========================================================================== */
+.tracklist-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.search-sort-bar {
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cyber-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.cyber-search-box input {
+    width: 100%;
+    background: #06080E;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    color: #FFF;
+    padding: 6px 10px 6px 32px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.cyber-search-box input:focus {
+    border-color: var(--omi-green);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.search-icon-svg {
+    position: absolute;
+    left: 9px;
+    color: var(--omi-green);
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.sort-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyber-text-dim);
+}
+
+.sort-select {
+    background: #06080E;
+    color: var(--omi-green);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 3px 6px;
+    cursor: pointer;
+}
+
+.track-scroll-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.track-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.track-row:hover {
+    background: var(--cyber-panel-hover);
+    border-left-color: var(--omi-blue);
+}
+
+.track-row.active {
+    background: rgba(255, 26, 117, 0.12);
+    border-left-color: var(--omi-pink);
+}
+
+.track-row.active .track-row-title {
+    color: var(--omi-pink);
+    text-shadow: 0 0 10px rgba(255, 26, 117, 0.65);
+}
+
+.track-row.active .track-row-num {
+    color: var(--omi-pink);
+    font-weight: bold;
+}
+
+.track-row-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyber-text-dim);
+    width: 20px;
+    text-align: center;
+}
+
+.track-row-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.track-row-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #E0E8F0;
+}
+
+.track-row-sub {
+    font-size: 12px;
+    color: var(--cyber-text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.track-row-duration {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--omi-blue);
+}
+
+.btn-track-action {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    color: var(--cyber-text-dim);
+    padding: 3px 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.btn-track-action:hover {
+    color: var(--omi-green);
+    border-color: var(--omi-green);
+}
+
+.btn-track-action.favorited {
+    border-color: var(--omi-pink);
+    color: var(--omi-pink);
+    box-shadow: 0 0 10px rgba(255, 26, 117, 0.45);
+}
+
+/* ==========================================================================
+   BOTTOM TRANSPORT DOCK
+   Layout requested:
+   Far Left: Volume slider + Mute
+   Next to volume (right of volume): Shuffle & Repeat
+   Center: Prev, Play/Pause, Next
+   Right: Nomad Telemetry & Status
+   ========================================================================== */
+.transport-dock {
+    position: relative;
+    z-index: 10;
+    background: rgba(10, 13, 20, 0.98);
+    border-top: 1px solid var(--cyber-panel-border);
+    padding: 10px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.8);
+}
+
+.timeline-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.time-stamp {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--omi-green);
+    min-width: 44px;
+}
+
+.seek-bar-wrapper {
+    flex: 1;
+    position: relative;
+    height: 7px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.seek-bar-progress {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--omi-green), var(--omi-pink));
+    box-shadow: 0 0 12px rgba(255, 26, 117, 0.7);
+    position: relative;
+}
+
+.controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* LEFT CONTROLS GROUP (Volume on far left + Shuffle/Repeat right next to it) */
+.transport-left-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    max-width: 380px;
+}
+
+.volume-control-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vol-slider {
+    width: 90px;
+    accent-color: var(--omi-pink);
+    cursor: pointer;
+}
+
+.vol-pct {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyber-text-dim);
+    min-width: 32px;
+}
+
+.mode-toggles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-transport-mode {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--cyber-text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 5px 9px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-transport-mode:hover {
+    color: #FFF;
+    border-color: var(--omi-green);
+}
+
+.btn-transport-mode.active {
+    border-color: var(--omi-green);
+    color: var(--omi-green);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+/* CENTER CONTROLS (Prev, Play, Next) */
+.main-playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-transport-circle {
+    background: rgba(0, 255, 136, 0.06);
+    border: 1px solid var(--omi-green);
+    color: var(--omi-green);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-transport-circle:hover {
+    background: var(--omi-green);
+    color: #000;
+    box-shadow: var(--omi-green-glow);
+    transform: scale(1.08);
+}
+
+.btn-play-master {
+    background: var(--omi-green);
+    border: 2px solid var(--omi-green);
+    color: #000;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--omi-green-glow);
+    transition: all 0.2s ease;
+}
+
+.btn-play-master:hover {
+    background: #FFF;
+    border-color: #FFF;
+    color: #000;
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.8);
+    transform: scale(1.1);
+}
+
+/* RIGHT CONTROLS GROUP (Nomad Telemetry & DAC info) */
+.transport-right-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    max-width: 380px;
+    justify-content: flex-end;
+}
+
+.hud-telemetry-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.hud-telemetry-badge .badge-title {
+    font-size: 9px;
+    color: var(--cyber-text-dim);
+    letter-spacing: 1px;
+}
+
+.hud-telemetry-badge .badge-val {
+    font-size: 11px;
+    color: var(--omi-blue);
+    font-weight: bold;
+}
+
+.hud-signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 16px;
+}
+
+.hud-signal-bars .sig-bar {
+    width: 3px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.hud-signal-bars .sig-bar:nth-child(1) { height: 6px; }
+.hud-signal-bars .sig-bar:nth-child(2) { height: 10px; }
+.hud-signal-bars .sig-bar:nth-child(3) { height: 13px; }
+.hud-signal-bars .sig-bar:nth-child(4) { height: 16px; }
+
+.hud-signal-bars .sig-bar.active {
+    background: var(--omi-green);
+    box-shadow: var(--omi-green-glow);
+}
+
+/* Support for custom Aseprite Pixel Art Icons */
+.pixel-icon {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: #080A10;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--cyber-panel-border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--omi-green);
+}
+
+/* Drop Zone Overlay */
+.drop-zone-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(7, 9, 15, 0.94);
+    border: 3px dashed var(--omi-green);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+}
+
+.drop-zone-overlay.active {
+    display: flex;
+}
+
+.drop-zone-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--omi-green);
+    letter-spacing: 2px;
+    text-shadow: var(--omi-green-glow);
+}
+
+/* Modal for playlist creation */
+.cyber-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    backdrop-filter: blur(5px);
+}
+
+.cyber-modal.open {
+    display: flex;
+}
+
+.modal-box {
+    background: var(--cyber-panel);
+    border: 1px solid var(--omi-green);
+    padding: 24px;
+    width: 360px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(0, 255, 136, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--omi-green);
+    letter-spacing: 1px;
+}
+
+.modal-input {
+    background: #06070B;
+    border: 1px solid var(--omi-blue);
+    color: #FFF;
+    padding: 8px 12px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    outline: none;
+}
+
+.modal-btns {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Responsive (< 992px) */
+@media (max-width: 992px) {
+    body {
+        overflow-y: auto;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .header-bar {
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px 12px;
+        align-items: stretch;
+    }
+
+    .logo-group {
+        justify-content: space-between;
+    }
+
+    .header-telemetry {
+        display: none;
+    }
+
+    .main-deck {
+        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        gap: 12px;
+    }
+
+    .canvas-container {
+        min-height: 180px;
+        height: 220px;
+    }
+
+    .controls-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .transport-left-group, .transport-right-group {
+        max-width: 100%;
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* =========================================================================
+   NETRUNNER RIPPER MODAL
+   ========================================================================= */
+.ripper-modal-box {
+    width: 480px;
+    max-width: 95vw;
+    border-color: var(--omi-purple);
+    box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 20px rgba(176, 38, 255, 0.35);
+}
+
+.ripper-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ripper-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    background: rgba(176, 38, 255, 0.15);
+    border: 1px solid var(--omi-purple);
+    color: #E085FF;
+    padding: 2px 6px;
+}
+
+.ripper-desc {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyber-text-dim);
+    line-height: 1.5;
+}
+
+.ripper-options {
+    display: flex;
+    gap: 12px;
+}
+
+.ripper-opt {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ripper-opt label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--omi-purple);
+    letter-spacing: 1px;
+}
+
+.ripper-select {
+    background: rgba(7, 9, 14, 0.9);
+    border: 1px solid rgba(176, 38, 255, 0.5);
+    color: var(--cyber-text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 6px 8px;
+    outline: none;
+}
+
+.ripper-select:focus {
+    border-color: var(--omi-purple);
+    box-shadow: 0 0 8px rgba(176, 38, 255, 0.4);
+}
+
+.ripper-console-box {
+    background: rgba(5, 7, 10, 0.85);
+    border: 1px solid rgba(255, 26, 117, 0.3);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ripper-console-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--omi-pink);
+    letter-spacing: 1px;
+}
+
+.ripper-console-log {
+    height: 90px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 4px;
+}
+
+.ripper-console-log .log-line {
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+.ripper-console-log .log-line.system { color: #E085FF; }
+.ripper-console-log .log-line.info { color: var(--omi-blue); }
+.ripper-console-log .log-line.success { color: var(--omi-green); font-weight: bold; }
+.ripper-console-log .log-line.warn { color: var(--omi-yellow); }
+.ripper-console-log .log-line.error { color: var(--omi-pink); font-weight: bold; }
+
+.ripper-progress-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.ripper-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--omi-purple), var(--omi-pink));
+    box-shadow: 0 0 10px var(--omi-pink);
+    transition: width 0.3s ease;
+}

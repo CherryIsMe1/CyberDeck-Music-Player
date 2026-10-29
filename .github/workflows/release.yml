@@ -41,8 +41,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'CYBERDECK // SNAKE NATION v__VERSION__'
+          tagName: ${{ github.ref_name }}
+          releaseName: 'CYBERDECK // SNAKE NATION ${{ github.ref_name }}'
           releaseBody: 'Official Cyberdeck Snake Nation release for Windows 11, Linux Debian, and Android.'
           releaseDraft: false
           prerelease: false
@@ -72,7 +72,7 @@ jobs:
       - name: Install Capacitor & Setup Android Project
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
           npx cap add android
           npx cap sync android
 
@@ -80,12 +80,16 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease || ./gradlew assembleDebug
+          ./gradlew assembleDebug
+          cd ..
+          mkdir -p release-apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-apk/cyberdeck-player-android.apk
 
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: android/app/build/outputs/apk/**/*.apk
+          tag_name: ${{ github.ref_name }}
+          files: release-apk/cyberdeck-player-android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
