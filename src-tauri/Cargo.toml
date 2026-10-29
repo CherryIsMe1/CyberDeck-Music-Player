@@ -1,0 +1,18 @@
+[package]
+name = "cyberdeck-player"
+version = "1.0.0"
+description = "Cyberpunk Snake Nation Nomad Audio Deck"
+authors = ["Cyberdeck Nomad"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-shell = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-dialog = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.36", features = ["full"] }
