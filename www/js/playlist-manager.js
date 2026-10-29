@@ -140,7 +140,19 @@ class CyberPlaylistManager {
 
             // Extract filename (handle both / and \ separators)
             const rawName = filePath.replace(/\\/g, '/').split('/').pop();
-            const nameNoExt = rawName.replace(/\.[^.]+$/, '');
+            let nameNoExt = rawName.replace(/\.[^.]+$/, '');
+            try {
+                nameNoExt = decodeURIComponent(nameNoExt);
+            } catch (_) {}
+
+            let fallbackTitle = nameNoExt;
+            let fallbackArtist = 'Unknown Artist';
+            const cleanName = nameNoExt.replace(/^\d+[\s.-]+/, '');
+            if (cleanName.includes(' - ')) {
+                const parts = cleanName.split(' - ');
+                fallbackArtist = parts[0].trim();
+                fallbackTitle = parts.slice(1).join(' - ').trim();
+            }
 
             const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
 
@@ -166,8 +178,8 @@ class CyberPlaylistManager {
                 id,
                 filePath,
                 url,
-                title: metadata.title || nameNoExt,
-                artist: metadata.artist || 'Unknown Artist',
+                title: metadata.title || fallbackTitle,
+                artist: metadata.artist || fallbackArtist,
                 album: metadata.album || 'Unknown Album',
                 year: metadata.year || '',
                 coverArt: metadata.coverArt || null,
@@ -201,8 +213,8 @@ class CyberPlaylistManager {
                 resolve(tempAudio.duration || 0);
             });
             tempAudio.addEventListener('error', () => resolve(0));
-            // Timeout safety
-            setTimeout(() => resolve(0), 1200);
+            // Timeout safety (fast so large folders import smoothly)
+            setTimeout(() => resolve(0), 400);
         });
     }
 

@@ -377,11 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     multiple: false
                 });
                 if (folder) {
-                    const entries = await window.__TAURI__.fs.readDir(folder, { recursive: true });
-                    const audioPaths = entries
-                        .filter(e => e.name && /\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(e.name))
-                        .map(e => e.path);
-                    if (audioPaths.length > 0) {
+                    const audioPaths = await window.__TAURI__.core.invoke('read_audio_files_in_dir', { dirPath: folder });
+                    if (audioPaths && audioPaths.length > 0) {
                         const added = await window.PlaylistManager.addFilesFromPaths(audioPaths);
                         window.CyberSound.playSuccess();
                         renderPlaylists();
