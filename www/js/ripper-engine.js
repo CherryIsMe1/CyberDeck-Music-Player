@@ -14,13 +14,17 @@ class CyberRipperEngine {
             'https://pipedapi.kavin.rocks',
             'https://api.piped.privacydev.net',
             'https://pipedapi.leptons.xyz',
-            'https://pipedapi.drgns.space'
+            'https://pipedapi.drgns.space',
+            'https://pipedapi.tokhmi.xyz',
+            'https://pipedapi.moomoo.me'
         ];
 
         this.invidiousInstances = [
             'https://inv.nadeko.net',
             'https://invidious.jing.rocks',
-            'https://yewtu.be'
+            'https://yewtu.be',
+            'https://invidious.privacydev.net',
+            'https://iv.datura.network'
         ];
     }
 
@@ -314,7 +318,7 @@ class CyberRipperEngine {
             // Cobalt fallback failed
         }
 
-        throw new Error('All stream gateways are currently unreachable. Check your internet connection.');
+        throw new Error('All stream gateways are currently unreachable.\n\nThis ripper uses public YouTube proxy APIs that can go down.\nTry again in a few minutes, or use the Download_From_Spotify_and_YT.bat script for guaranteed 320kbps downloads.');
     }
 
     sleep(ms) {
