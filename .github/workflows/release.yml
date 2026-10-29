@@ -71,7 +71,6 @@ jobs:
 
       - name: Install Capacitor & Setup Android Project
         run: |
-          npm init -y
           npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
           npx cap add android
           npx cap sync android
