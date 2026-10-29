@@ -1,5 +1,5 @@
 # ⚡ CYBERDECK // SNAKE NATION [NOMAD AUDIO DECK]
-> Ultra-lightweight, cross-platform audio player & visualizer themed around **Omi (Snake Nation Nomad)** from *Cyberpunk: Edgerunners (Season 2)*.
+> Ultra-lightweight, cross-platform audio player & visualizer themed around **Snake nation** from *Cyberpunk: Edgerunners (Season 2)*.
 
 [![Platform - Windows](https://img.shields.io/badge/Platform-Windows%2011-0088FF?style=for-the-badge&logo=windows)](https://github.com)
 [![Platform - Linux](https://img.shields.io/badge/Platform-Debian%20%2F%20Linux-A81D33?style=for-the-badge&logo=debian)](https://github.com)
@@ -11,7 +11,7 @@
 
 ## 📸 FEATURES AT A GLANCE
 
-* **Snake Nation Aesthetic:** Designed with Omi's signature Nomad palette:
+* **Snake Nation Aesthetic:**
   * Toxic Emerald green wolf-cut hair (`#00FF88`)
   * Snake Nation deep royal purple (`#B026FF`)
   * Signature hot pink harness / tattoo (`#FF1A75`)
