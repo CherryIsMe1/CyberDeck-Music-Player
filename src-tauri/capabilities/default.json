@@ -2,16 +2,18 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Cyberdeck player default capabilities",
-  "windows": ["main"],
+  "windows": ["*"],
   "permissions": [
     "core:default",
+    "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
-    "fs:allow-read-all",
-    "fs:allow-write-all",
-    "fs:allow-create-all",
+    "fs:default",
+    "fs:read-all",
+    "fs:write-all",
     "fs:allow-exists",
     "fs:allow-read-dir",
+    "shell:default",
     "shell:allow-execute",
     "shell:allow-open"
   ]
