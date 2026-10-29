@@ -1,0 +1,13 @@
+{
+  "name": "cyberdeck-snake-nation",
+  "version": "1.0.0",
+  "description": "Cyberpunk Snake Nation Nomad Audio Deck",
+  "main": "www/index.html",
+  "scripts": {
+    "cap:sync": "npx cap sync android",
+    "cap:build": "npx cap build android"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
