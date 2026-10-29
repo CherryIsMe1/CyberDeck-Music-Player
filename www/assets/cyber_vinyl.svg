@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+    <!-- Vinyl Outer Body -->
+    <circle cx="100" cy="100" r="98" fill="#0A0D14" stroke="#FF1A75" stroke-width="2" />
+    
+    <!-- Vinyl Grooves -->
+    <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1.5" />
+    <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(0, 255, 136, 0.15)" stroke-width="1" />
+    <circle cx="100" cy="100" r="74" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1.5" />
+    <circle cx="100" cy="100" r="66" fill="none" stroke="rgba(255, 26, 117, 0.15)" stroke-width="1" />
+    <circle cx="100" cy="100" r="58" fill="none" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1.5" />
+    <circle cx="100" cy="100" r="50" fill="none" stroke="rgba(0, 255, 136, 0.12)" stroke-width="1" />
+
+    <!-- Vinyl Gloss Reflection -->
+    <path d="M 30,30 L 100,100 L 45,15 Z" fill="rgba(255, 255, 255, 0.04)" />
+    <path d="M 170,170 L 100,100 L 155,185 Z" fill="rgba(255, 255, 255, 0.04)" />
+
+    <!-- Center Label -->
+    <circle cx="100" cy="100" r="38" fill="#111625" stroke="#00FF88" stroke-width="2" />
+    <circle cx="100" cy="100" r="34" fill="none" stroke="#FF1A75" stroke-width="1" stroke-dasharray="3, 3" />
+
+    <text x="100" y="93" font-family="'Orbitron', sans-serif" font-size="8" font-weight="900" fill="#FF1A75" text-anchor="middle" letter-spacing="1.5">SNAKE NATION</text>
+    <text x="100" y="105" font-family="'Share Tech Mono', monospace" font-size="7" fill="#00FF88" text-anchor="middle">33 RPM • LP</text>
+    <text x="100" y="115" font-family="'Share Tech Mono', monospace" font-size="6" fill="#8B99AE" text-anchor="middle">NIGHT CITY 2077</text>
+
+    <!-- Spindle Hole -->
+    <circle cx="100" cy="100" r="6" fill="#07090E" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+</svg>

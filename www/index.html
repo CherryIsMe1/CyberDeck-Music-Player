@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBERDECK // SNAKE NATION AUDIO</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF1A75">
+    <link rel="stylesheet" href="css/cyberpunk-theme.css">
+    <link rel="icon" type="image/svg+xml" href="assets/edgerunners_logo.svg">
+</head>
+<body>
+    <!-- CRT Scanline Overlay -->
+    <div class="scanlines" id="scanlines"></div>
+
+    <!-- Drag & Drop Full Window Overlay -->
+    <div class="drop-zone-overlay" id="dropZoneOverlay">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--omi-pink)" stroke-width="1.8">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="M12 8v8m-4-4l4-4 4 4"/>
+        </svg>
+        <div class="drop-zone-text">UPLOAD AUDIO TO NEURAL DECK</div>
+        <div style="font-family: 'Share Tech Mono', monospace; color: var(--omi-blue);">
+            DROP MP3 FILES OR FOLDERS HERE
+        </div>
+    </div>
+
+    <!-- Hidden File Pickers -->
+    <input type="file" id="fileInput" multiple accept="audio/mp3,audio/*" style="display: none;">
+    <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+
+    <!-- TOP TELEMETRY HEADER -->
+    <header class="header-bar">
+        <div class="logo-group">
+            <span class="logo-badge">CYBERDECK</span>
+            <div class="logo-title">SNAKE NATION <span>// NOMAD DECK</span></div>
+        </div>
+
+        <div class="header-telemetry">
+            <div class="telemetry-item">
+                <span class="telemetry-dot"></span>
+                <span>STATUS: ONLINE</span>
+            </div>
+            <div class="telemetry-item">
+                <span>CLAN:</span>
+                <span style="color: var(--omi-purple);">SNAKE NATION</span>
+            </div>
+            <div class="telemetry-item">
+                <span>VIEW:</span>
+                <span id="headerCoverStatus" style="color: var(--omi-pink);">OMI PORTRAIT</span>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <button class="btn-cover-toggle cyber-cut-sm" id="btnToggleCover" title="Toggle Disc View: Omi Portrait / Album Cover">
+                DISC VIEW: OMI PORTRAIT
+            </button>
+            <button class="btn-cyber-icon" id="btnToggleSound" title="Interface Sound Effects">
+                SFX: ON
+            </button>
+        </div>
+    </header>
+
+    <div class="hazard-bar"></div>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="main-deck">
+        <!-- LEFT PANEL: PLAYLISTS & IMPORTER -->
+        <aside class="cyber-panel cyber-cut">
+            <div class="panel-header">
+                <span>BEATS & PLAYLISTS</span>
+                <span class="header-code">[MOD_01]</span>
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn-cyber-block cyber-cut-sm" id="btnImportFiles">
+                    <span>+</span> ADD MP3 FILES
+                </button>
+                <button class="btn-cyber-block cyber-cut-sm btn-cyber-secondary" id="btnImportFolder">
+                    <span>+</span> ADD FOLDER
+                </button>
+                <button class="btn-cyber-block cyber-cut-sm" id="btnOpenRipper" style="background: rgba(176, 38, 255, 0.14); border-color: var(--omi-purple); color: #E085FF;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle;">
+                        <path d="M12 3v12m-5-5l5 5 5-5M4 21h16"/>
+                    </svg>
+                    <span>RIPPER // YOUTUBE & AUDIO</span>
+                </button>
+                <button class="btn-cyber-block cyber-cut-sm" id="btnTestStream" style="background: rgba(255, 26, 117, 0.12); border-color: var(--omi-pink); color: var(--omi-pink);">
+                    LOAD DEMO
+                </button>
+            </div>
+
+            <div class="playlist-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 6px;">
+                    <div class="playlist-section-title">NEURAL DIRECTORY</div>
+                    <button class="btn-cyber-icon" id="btnNewPlaylist" style="padding: 2px 6px; font-size: 11px;" title="Create new playlist">
+                        + NEW
+                    </button>
+                </div>
+                <div class="playlist-list" id="playlistsContainer">
+                    <!-- Dynamic Playlists rendered here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER PANEL: VISUALIZER, NOW PLAYING & EQUALIZER -->
+        <section class="center-deck">
+            <div class="visualizer-card cyber-cut">
+                <div class="visualizer-toolbar">
+                    <div style="font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--omi-green);">
+                        FREQUENCY SPECTRUM // SNAKE HUD
+                    </div>
+                    <div class="mode-pills">
+                        <button class="btn-mode-pill active" data-mode="snake-coil">SNAKE COIL</button>
+                        <button class="btn-mode-pill" data-mode="gorilla-bars">GORILLA BARS</button>
+                        <button class="btn-mode-pill" data-mode="nomad-laser">NOMAD LASER</button>
+                        <button class="btn-mode-pill" data-mode="badlands-3d">BADLANDS 3D</button>
+                    </div>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="cyberVisualizerCanvas"></canvas>
+                    <div class="holo-turntable" id="holoTurntable" title="Click to toggle view: Omi Portrait / Album Cover">
+                        <img class="holo-cover-art" id="holoCoverArt" src="assets/omi_portrait.png" alt="Disc Cover Art">
+                    </div>
+                </div>
+
+                <div class="now-playing-strip">
+                    <div class="track-main-info">
+                        <div class="track-live-title" id="trackLiveTitle">CYBERDECK // READY TO PLAY</div>
+                        <div class="track-live-artist" id="trackLiveArtist">Select a track or load MP3 files</div>
+                        <div class="track-live-album" id="trackLiveAlbum">SNAKE NATION • BADLANDS AUDIO 2077</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EQUALIZER & AUDIO DSP -->
+            <div class="eq-panel cyber-cut-sm">
+                <div style="font-family: 'Orbitron', monospace; font-size: 11px; color: var(--omi-green); letter-spacing: 1px;">
+                    AUDIO DSP // EQ
+                </div>
+                <div class="eq-sliders">
+                    <div class="eq-band-col">
+                        <input type="range" class="eq-slider" data-band="0" min="-12" max="12" step="1" value="0">
+                        <span class="eq-label">60Hz</span>
+                    </div>
+                    <div class="eq-band-col">
+                        <input type="range" class="eq-slider" data-band="1" min="-12" max="12" step="1" value="0">
+                        <span class="eq-label">250Hz</span>
+                    </div>
+                    <div class="eq-band-col">
+                        <input type="range" class="eq-slider" data-band="2" min="-12" max="12" step="1" value="0">
+                        <span class="eq-label">1kHz</span>
+                    </div>
+                    <div class="eq-band-col">
+                        <input type="range" class="eq-slider" data-band="3" min="-12" max="12" step="1" value="0">
+                        <span class="eq-label">4kHz</span>
+                    </div>
+                    <div class="eq-band-col">
+                        <input type="range" class="eq-slider" data-band="4" min="-12" max="12" step="1" value="0">
+                        <span class="eq-label">12kHz</span>
+                    </div>
+                </div>
+
+                <div class="eq-presets">
+                    <select class="preset-select" id="presetSelect">
+                        <option value="flat">PRESET: FLAT</option>
+                        <option value="bassBoost">PRESET: BASS BOOST</option>
+                        <option value="vocal">PRESET: VOCAL</option>
+                        <option value="electronic">PRESET: ELECTRONIC</option>
+                        <option value="rock">PRESET: ROCK</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: TRACK LIST & SEARCH/SORT -->
+        <aside class="cyber-panel cyber-cut tracklist-card">
+            <div class="panel-header">
+                <span id="activePlaylistTitle">ALL TRACKS</span>
+                <span class="header-code" id="trackCountBadge">0 TRACKS</span>
+            </div>
+
+            <div class="search-sort-bar">
+                <div class="cyber-search-box">
+                    <span class="search-icon-svg">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                        </svg>
+                    </span>
+                    <input type="text" id="searchInput" placeholder="SEARCH TITLE, ARTIST, ALBUM..." autocomplete="off">
+                </div>
+                <div class="sort-row">
+                    <span>SORT BY:</span>
+                    <select class="sort-select" id="sortSelect">
+                        <option value="date-desc">Recently Added</option>
+                        <option value="title-asc">Title (A &rarr; Z)</option>
+                        <option value="title-desc">Title (Z &rarr; A)</option>
+                        <option value="artist-asc">Artist (A &rarr; Z)</option>
+                        <option value="duration-asc">Duration (Shortest)</option>
+                        <option value="duration-desc">Duration (Longest)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="track-scroll-list" id="trackScrollList">
+                <!-- Tracks dynamically rendered here -->
+            </div>
+        </aside>
+    </main>
+
+    <!-- BOTTOM TRANSPORT BAR -->
+    <footer class="transport-dock">
+        <!-- Progress / Timeline -->
+        <div class="timeline-row">
+            <span class="time-stamp" id="currentTimeDisplay">0:00</span>
+            <div class="seek-bar-wrapper" id="seekBarWrapper">
+                <div class="seek-bar-progress" id="seekBarProgress"></div>
+            </div>
+            <span class="time-stamp" id="durationDisplay">0:00</span>
+        </div>
+
+        <div class="controls-row">
+            <!-- 1. LEFT GROUP: VOLUME + SHUFFLE & REPEAT -->
+            <div class="transport-left-group">
+                <!-- Volume & Mute -->
+                <div class="volume-control-box">
+                    <button class="btn-cyber-icon" id="btnMute" title="Mute / Unmute" style="padding: 5px 8px;">
+                        <span id="muteIconSlot">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                            </svg>
+                        </span>
+                    </button>
+                    <input type="range" class="vol-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.8">
+                    <span class="vol-pct" id="volPercent">80%</span>
+                </div>
+
+                <!-- Mode Toggles (Shuffle & Repeat) -->
+                <div class="mode-toggles">
+                    <button class="btn-transport-mode" id="btnShuffle" title="Shuffle playback">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+                        </svg>
+                        <span>SHUF</span>
+                    </button>
+                    <button class="btn-transport-mode active" id="btnRepeat" title="Repeat mode">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                        </svg>
+                        <span id="repeatLabel">LOOP ALL</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. CENTER CONTROLS: PREV, PLAY/PAUSE, NEXT -->
+            <div class="main-playback-controls">
+                <button class="btn-transport-circle" id="btnPrev" title="Previous track (P)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                    </svg>
+                </button>
+                <button class="btn-play-master" id="btnPlayMaster" title="Play / Pause (Space)">
+                    <span id="playMasterIcon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </span>
+                </button>
+                <button class="btn-transport-circle" id="btnNext" title="Next track (N)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 3. RIGHT GROUP: TELEMETRY & AUDIO STATUS -->
+            <div class="transport-right-group">
+                <div class="hud-telemetry-badge">
+                    <span class="badge-title">AUDIO STREAM // DAC</span>
+                    <span class="badge-val">48kHz • 24-BIT</span>
+                </div>
+                <div class="hud-signal-bars" title="Signal buffer status">
+                    <span class="sig-bar active"></span>
+                    <span class="sig-bar active"></span>
+                    <span class="sig-bar active"></span>
+                    <span class="sig-bar active"></span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL: CREATE PLAYLIST -->
+    <div class="cyber-modal" id="playlistModal">
+        <div class="modal-box cyber-cut">
+            <div class="modal-title">NEW PLAYLIST // NOMAD DECK</div>
+            <input type="text" class="modal-input" id="playlistNameInput" placeholder="Enter playlist name...">
+            <div class="modal-btns">
+                <button class="btn-cyber-icon" id="btnCancelPlaylist">CANCEL</button>
+                <button class="btn-cyber-block cyber-cut-sm" id="btnConfirmPlaylist" style="padding: 6px 14px;">CREATE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NETRUNNER RIPPER (IN-APP YOUTUBE & AUDIO EXTRACTOR) -->
+    <div class="cyber-modal" id="ripperModal">
+        <div class="modal-box cyber-cut ripper-modal-box">
+            <div class="ripper-header">
+                <div class="modal-title" style="color: var(--omi-purple); letter-spacing: 1.5px;">NETRUNNER // YOUTUBE AUDIO RIPPER</div>
+                <span class="ripper-badge">v2.077</span>
+            </div>
+            
+            <div class="ripper-desc">
+                Paste any YouTube link, song title/search query, or Spotify link. Real high-fidelity audio is extracted and streamed directly inside the app.
+            </div>
+
+            <div class="ripper-input-group">
+                <input type="text" class="modal-input" id="ripperUrlInput" placeholder="Paste YouTube link or song name (e.g. I Really Want to Stay At Your House)..." autocomplete="off">
+            </div>
+
+            <div class="ripper-options">
+                <div class="ripper-opt">
+                    <label>BITRATE:</label>
+                    <select class="ripper-select" id="ripperQuality">
+                        <option value="320k">320 KBPS [HIGH FIDELITY]</option>
+                        <option value="256k">256 KBPS [BALANCED]</option>
+                        <option value="192k">192 KBPS [COMPACT]</option>
+                    </select>
+                </div>
+                <div class="ripper-opt">
+                    <label>DESTINATION:</label>
+                    <select class="ripper-select" id="ripperTargetPlaylist">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Terminal Console & Progress -->
+            <div class="ripper-console-box">
+                <div class="ripper-console-header">
+                    <span>DECRYPTOR TELEMETRY LOG</span>
+                    <span id="ripperStatusDot" class="telemetry-dot"></span>
+                </div>
+                <div class="ripper-console-log" id="ripperConsoleLog">
+                    <div class="log-line system">> NEURAL RIPPER STANDBY. AWAITING TARGET URL...</div>
+                </div>
+                <div class="ripper-progress-bar">
+                    <div class="ripper-progress-fill" id="ripperProgressFill"></div>
+                </div>
+            </div>
+
+            <div class="modal-btns">
+                <button class="btn-cyber-icon" id="btnCloseRipper">CLOSE</button>
+                <button class="btn-cyber-block cyber-cut-sm" id="btnExecuteRip" style="background: rgba(176, 38, 255, 0.25); border-color: var(--omi-purple); color: #fff; padding: 7px 18px;">
+                    EXECUTE RIP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/id3-parser.js"></script>
+    <script src="js/sound-effects.js"></script>
+    <script src="js/sample-tracks.js"></script>
+    <script src="js/audio-engine.js"></script>
+    <script src="js/playlist-manager.js"></script>
+    <script src="js/visualizer.js"></script>
+    <script src="js/ripper-engine.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
