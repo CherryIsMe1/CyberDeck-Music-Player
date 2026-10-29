@@ -50,8 +50,23 @@ class CyberPlaylistManager {
             if (savedFavs) {
                 this.playlists.favorites.trackIds = JSON.parse(savedFavs);
             }
+
+            // Restore persisted tracks (Tauri mode: recreate from file paths)
+            const savedTracks = localStorage.getItem('edgerunners_tracks');
+            if (savedTracks) {
+                const trackList = JSON.parse(savedTracks);
+                for (const t of trackList) {
+                    if (typeof window.__TAURI__ !== 'undefined' && t.filePath) {
+                        t.url = window.__TAURI__.core.convertFileSrc(t.filePath);
+                        this.tracks.set(t.id, t);
+                    } else if (!t.filePath) {
+                        // Non-Tauri blob: URLs cannot be restored — skip
+                    }
+                    // else: Tauri but no filePath — also skip
+                }
+            }
         } catch (e) {
-            console.warn("Błąd odczytu danych playlisty z localStorage:", e);
+            console.warn("Error reading playlist data from localStorage:", e);
         }
     }
 
@@ -59,8 +74,16 @@ class CyberPlaylistManager {
         try {
             localStorage.setItem('edgerunners_playlists', JSON.stringify(this.playlists));
             localStorage.setItem('edgerunners_favorites', JSON.stringify(this.playlists.favorites.trackIds));
+
+            // Persist track metadata (omit the File object; keep filePath for Tauri restore)
+            const trackData = [];
+            this.tracks.forEach(track => {
+                const { file, ...rest } = track; // eslint-disable-line no-unused-vars
+                trackData.push(rest);
+            });
+            localStorage.setItem('edgerunners_tracks', JSON.stringify(trackData));
         } catch (e) {
-            console.warn("Błąd zapisu do localStorage:", e);
+            console.warn("Error writing to localStorage:", e);
         }
     }
 
@@ -102,6 +125,62 @@ class CyberPlaylistManager {
             newTracks.push(track);
         }
 
+        this.notifyChange();
+        return newTracks;
+    }
+
+    /**
+     * Tauri mode: add tracks from real filesystem paths.
+     * Uses convertFileSrc for stable URLs and persists filePath for reload.
+     */
+    async addFilesFromPaths(paths) {
+        const newTracks = [];
+        for (const filePath of paths) {
+            const url = window.__TAURI__.core.convertFileSrc(filePath);
+
+            // Extract filename (handle both / and \ separators)
+            const rawName = filePath.replace(/\\/g, '/').split('/').pop();
+            const nameNoExt = rawName.replace(/\.[^.]+$/, '');
+
+            const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+            // Attempt ID3 parsing via fetch + File object
+            let metadata = {};
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const file = new File([arrayBuffer], rawName, { type: 'audio/mpeg' });
+                metadata = await window.ID3Parser.parse(file);
+            } catch (e) {
+                // Fall back to filename-based metadata
+            }
+
+            let duration = 0;
+            try {
+                duration = await this.getAudioDuration(url);
+            } catch (e) {
+                duration = 0;
+            }
+
+            const track = {
+                id,
+                filePath,
+                url,
+                title: metadata.title || nameNoExt,
+                artist: metadata.artist || 'Unknown Artist',
+                album: metadata.album || 'Unknown Album',
+                year: metadata.year || '',
+                coverArt: metadata.coverArt || null,
+                duration,
+                dateAdded: Date.now()
+            };
+
+            this.tracks.set(id, track);
+            this.playlists.all.trackIds.push(id);
+            newTracks.push(track);
+        }
+
+        this.saveToStorage();
         this.notifyChange();
         return newTracks;
     }

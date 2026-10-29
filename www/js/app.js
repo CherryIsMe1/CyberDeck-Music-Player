@@ -340,14 +340,63 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // IMPORT FILES & FOLDERS
     // =========================================================================
-    elements.btnImportFiles.addEventListener('click', () => {
+    const isTauri = typeof window.__TAURI__ !== 'undefined';
+
+    elements.btnImportFiles.addEventListener('click', async () => {
         window.CyberSound.playClick();
-        elements.fileInput.click();
+        if (isTauri) {
+            try {
+                const paths = await window.__TAURI__.dialog.open({
+                    multiple: true,
+                    filters: [{ name: 'Audio', extensions: ['mp3', 'mp4', 'flac', 'wav', 'ogg', 'm4a', 'aac'] }]
+                });
+                if (paths) {
+                    const pathArray = Array.isArray(paths) ? paths : [paths];
+                    const added = await window.PlaylistManager.addFilesFromPaths(pathArray);
+                    window.CyberSound.playSuccess();
+                    renderPlaylists();
+                    renderTracks();
+                    if (!window.PlaylistManager.currentTrackId && added.length > 0) {
+                        playTrack(added[0]);
+                    }
+                }
+            } catch (err) {
+                console.error('Tauri file dialog error:', err);
+            }
+        } else {
+            elements.fileInput.click();
+        }
     });
 
-    elements.btnImportFolder.addEventListener('click', () => {
+    elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
-        elements.folderInput.click();
+        if (isTauri) {
+            try {
+                const folder = await window.__TAURI__.dialog.open({
+                    directory: true,
+                    multiple: false
+                });
+                if (folder) {
+                    const entries = await window.__TAURI__.fs.readDir(folder, { recursive: true });
+                    const audioPaths = entries
+                        .filter(e => e.name && /\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(e.name))
+                        .map(e => e.path);
+                    if (audioPaths.length > 0) {
+                        const added = await window.PlaylistManager.addFilesFromPaths(audioPaths);
+                        window.CyberSound.playSuccess();
+                        renderPlaylists();
+                        renderTracks();
+                        if (!window.PlaylistManager.currentTrackId && added.length > 0) {
+                            playTrack(added[0]);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Tauri folder dialog error:', err);
+            }
+        } else {
+            elements.folderInput.click();
+        }
     });
 
     elements.fileInput.addEventListener('change', async (e) => {
@@ -556,17 +605,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Add to selected playlist
                 const targetPlId = elements.ripperTargetPlaylist.value || 'all';
-                window.PlaylistManager.addCustomTrack(rippedTrack);
-                if (targetPlId !== 'all') {
-                    window.PlaylistManager.addTrackToPlaylist(targetPlId, rippedTrack.id);
+                if (isTauri && rippedTrack.filePath) {
+                    // Native rip: use addFilesFromPaths so the track is persisted properly
+                    const added = await window.PlaylistManager.addFilesFromPaths([rippedTrack.filePath]);
+                    const persistedTrack = added[0] || rippedTrack;
+                    if (targetPlId !== 'all') {
+                        window.PlaylistManager.addTrackToPlaylist(targetPlId, persistedTrack.id);
+                    }
+                    window.CyberSound.playSuccess();
+                    renderPlaylists();
+                    renderTracks();
+                    playTrack(persistedTrack);
+                } else {
+                    window.PlaylistManager.addCustomTrack(rippedTrack);
+                    if (targetPlId !== 'all') {
+                        window.PlaylistManager.addTrackToPlaylist(targetPlId, rippedTrack.id);
+                    }
+                    window.CyberSound.playSuccess();
+                    renderPlaylists();
+                    renderTracks();
+                    playTrack(rippedTrack);
                 }
-
-                window.CyberSound.playSuccess();
-                renderPlaylists();
-                renderTracks();
-
-                // Auto-play the newly decrypted track!
-                playTrack(rippedTrack);
 
                 if (elements.ripperStatusDot) elements.ripperStatusDot.style.background = 'var(--omi-green)';
                 setTimeout(() => {
