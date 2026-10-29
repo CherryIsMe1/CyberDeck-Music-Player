@@ -1,4 +1,4 @@
-const CACHE_NAME = 'edgerunners-deck-v7';
+const CACHE_NAME = 'edgerunners-deck-v8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

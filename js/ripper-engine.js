@@ -1,13 +1,27 @@
 /**
- * Cyberdeck Netrunner Ripper Engine
- * Handles stream extraction from Spotify, YouTube, SoundCloud, and direct URLs.
- * Works seamlessly in Browser/PWA mode (via Web APIs) and Desktop Native mode (via Tauri IPC).
+ * Cyberdeck Netrunner Ripper Engine (In-App Multi-Gateway Stream Extractor)
+ * Extracts real audio streams directly inside the web app from YouTube, Spotify, and direct URLs.
+ * Operates without external scripts or batch files.
  */
 class CyberRipperEngine {
     constructor() {
         this.isProcessing = false;
         this.onLogUpdate = null;
         this.onProgressUpdate = null;
+
+        // Resilient public gateways for YouTube audio resolution
+        this.pipedInstances = [
+            'https://pipedapi.kavin.rocks',
+            'https://api.piped.privacydev.net',
+            'https://pipedapi.leptons.xyz',
+            'https://pipedapi.drgns.space'
+        ];
+
+        this.invidiousInstances = [
+            'https://inv.nadeko.net',
+            'https://invidious.jing.rocks',
+            'https://yewtu.be'
+        ];
     }
 
     log(message, type = 'info') {
@@ -25,7 +39,7 @@ class CyberRipperEngine {
     }
 
     /**
-     * Main entry point: Rips an audio stream from a URL or search query.
+     * Main entry point: Rips and injects audio stream directly into the Cyberdeck.
      */
     async ripStream(rawInput, quality = '320k') {
         if (this.isProcessing) {
@@ -37,18 +51,99 @@ class CyberRipperEngine {
 
         try {
             const input = rawInput.trim();
-            if (!input) throw new Error('Target stream URL cannot be empty.');
+            if (!input) throw new Error('Target stream URL or query cannot be empty.');
 
-            this.log('INITIATING NETRUNNER DECRYPTOR v2.077...', 'system');
-            await this.sleep(300);
+            this.log('INITIATING IN-APP STREAM EXTRACTOR...', 'system');
+            await this.sleep(250);
 
-            // 1. Check if running inside native Tauri environment
-            if (window.__TAURI__) {
-                return await this.ripViaTauri(input, quality);
+            let videoId = null;
+            let initialTitle = null;
+            let initialCover = null;
+
+            // 1. Check if Spotify link: resolve metadata then bridge to YouTube audio
+            if (input.includes('spotify.com')) {
+                this.log('SPOTIFY LINK DETECTED: RESOLVING METADATA...', 'info');
+                this.setProgress(20);
+
+                try {
+                    const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(input)}`;
+                    const res = await fetch(oembedUrl);
+                    if (res.ok) {
+                        const data = await res.json();
+                        initialTitle = data.title;
+                        initialCover = data.thumbnail_url;
+                        this.log(`SPOTIFY TRACK: "${initialTitle}"`, 'success');
+                    }
+                } catch (e) {
+                    this.log('SPOTIFY OEMBED TIMEOUT. SEARCHING HEURISTICALLY...', 'warn');
+                }
+
+                this.log('BRIDGING SPOTIFY TRACK TO YOUTUBE AUDIO STREAM...', 'info');
+                this.setProgress(35);
+                const searchTarget = initialTitle || input;
+                videoId = await this.searchYouTubeVideoId(searchTarget);
+
+            } else if (input.includes('youtube.com') || input.includes('youtu.be')) {
+                // 2. Direct YouTube link
+                this.log('YOUTUBE LINK DETECTED: PARSING VIDEO ID...', 'info');
+                this.setProgress(25);
+                videoId = this.extractYouTubeId(input);
+
+            } else if (input.match(/^https?:\/\/.*\.mp3($|\?)/i)) {
+                // 3. Direct MP3 URL
+                this.log('DIRECT MP3 STREAM DETECTED.', 'success');
+                this.setProgress(90);
+                const filename = input.split('/').pop().split('?')[0].replace(/\.mp3$/i, '');
+                return {
+                    id: 'direct-' + Date.now(),
+                    title: decodeURIComponent(filename),
+                    artist: 'Network Stream',
+                    album: 'Cyberdeck Ripper',
+                    year: '2077',
+                    duration: 240,
+                    url: input,
+                    coverArt: 'assets/omi_portrait.png',
+                    isRipped: true
+                };
+
+            } else {
+                // 4. Raw search query (e.g. "I Really Want to Stay At Your House")
+                this.log(`SEARCHING AUDIO REPOSITORY FOR: "${input}"...`, 'info');
+                this.setProgress(25);
+                videoId = await this.searchYouTubeVideoId(input);
             }
 
-            // 2. Browser / PWA Execution
-            return await this.ripViaWeb(input, quality);
+            if (!videoId) {
+                throw new Error('Could not resolve a matching YouTube audio stream for this query.');
+            }
+
+            this.log(`YOUTUBE STREAM ID LOCATED: [${videoId}]`, 'success');
+            this.setProgress(50);
+
+            // 5. Extract real playable audio stream URL from public gateways
+            this.log('INTERCEPTING AUDIO CARRIER VIA STREAM GATEWAYS...', 'info');
+            const streamData = await this.extractAudioStreamFromGateways(videoId);
+
+            this.setProgress(85);
+            this.log(`AUDIO STREAM LOCKED: ${streamData.title}`, 'success');
+
+            const finalCover = initialCover || streamData.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            const finalTitle = initialTitle || streamData.title;
+
+            this.setProgress(100);
+            this.log(`SUCCESS: STREAM READY IN CYBERDECK DECK!`, 'success');
+
+            return {
+                id: 'yt-' + videoId + '-' + Date.now(),
+                title: finalTitle,
+                artist: streamData.uploader || 'YouTube Audio',
+                album: 'Cyberdeck Stream 2077',
+                year: '2077',
+                duration: streamData.duration || 180,
+                url: streamData.audioUrl,
+                coverArt: finalCover,
+                isRipped: true
+            };
 
         } finally {
             this.isProcessing = false;
@@ -56,182 +151,170 @@ class CyberRipperEngine {
     }
 
     /**
-     * Browser / PWA Mode: Resolves metadata and stream in the browser.
+     * Extracts YouTube Video ID from any standard URL format.
      */
-    async ripViaWeb(input, quality) {
-        this.log(`TARGET SPECIFICATION: ${input}`, 'info');
-        this.setProgress(15);
-        await this.sleep(250);
-
-        let trackMeta = {
-            title: 'Unknown Track',
-            artist: 'Cyberdeck Nomad',
-            album: 'Netrunner Archive 2077',
-            year: new Date().getFullYear().toString(),
-            coverArt: 'assets/omi_portrait.png',
-            audioUrl: null
-        };
-
-        // A. Handle Spotify URLs
-        if (input.includes('spotify.com')) {
-            this.log('SPOTIFY STREAM IDENTIFIER DETECTED.', 'success');
-            this.log('RESOLVING OEMBED METADATA HEADERS...', 'info');
-            this.setProgress(30);
-
-            try {
-                const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(input)}`;
-                const response = await fetch(oembedUrl);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.title) {
-                        // Title usually formatted as "Song Title" or "Song - Artist"
-                        trackMeta.title = data.title;
-                    }
-                    if (data.thumbnail_url) {
-                        trackMeta.coverArt = data.thumbnail_url;
-                    }
-                    this.log(`METADATA RESOLVED: "${trackMeta.title}"`, 'success');
-                }
-            } catch (err) {
-                this.log('DIRECT OEMBED TIMEOUT. SWITCHING TO HEURISTIC RESOLVER...', 'warn');
-            }
-
-            this.setProgress(50);
-            this.log('SCANNING AUDIO REPOSITORIES FOR BEST BITRATE MATCH...', 'info');
-            await this.sleep(400);
-
-            // Fetch audio match via iTunes / Deezer search API
-            trackMeta = await this.enrichAudioStream(trackMeta, trackMeta.title);
-
-        } else if (input.includes('youtube.com') || input.includes('youtu.be')) {
-            // B. Handle YouTube URLs
-            this.log('YOUTUBE STREAM DETECTED.', 'success');
-            this.setProgress(35);
-            this.log('INTERCEPTING AUDIO SUB-CARRIER...', 'info');
-            
-            // Extract video ID
-            const match = input.match(/(?:youtu\.be\/|v=|\/embed\/|\/watch\?v=|\&v=)([\w-]{11})/);
-            const videoId = match ? match[1] : null;
-
-            if (videoId) {
-                trackMeta.coverArt = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-            }
-
-            trackMeta = await this.enrichAudioStream(trackMeta, videoId ? `YouTube Stream [${videoId}]` : 'Nomad Stream');
-
-        } else if (input.match(/^https?:\/\/.*\.mp3($|\?)/i)) {
-            // C. Direct MP3 URL
-            this.log('DIRECT MP3 BINARY STREAM DETECTED.', 'success');
-            this.setProgress(40);
-            trackMeta.audioUrl = input;
-            const filename = input.split('/').pop().split('?')[0].replace(/\.mp3$/i, '');
-            trackMeta.title = decodeURIComponent(filename);
-            this.log(`STREAM BUFFER READY: ${trackMeta.title}`, 'success');
-
-        } else {
-            // D. Query Search
-            this.log(`EXECUTING AUDIO SEARCH FOR: "${input}"`, 'info');
-            trackMeta = await this.enrichAudioStream(trackMeta, input);
-        }
-
-        this.setProgress(75);
-        this.log('DECRYPTING & BUFFERING AUDIO SAMPLES...', 'info');
-        await this.sleep(400);
-
-        this.setProgress(90);
-        this.log('INJECTING ID3v2 CYBERDECK METADATA & COVER ART...', 'info');
-        await this.sleep(300);
-
-        const newTrack = {
-            id: 'ripped-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-            title: trackMeta.title,
-            artist: trackMeta.artist,
-            album: trackMeta.album,
-            year: trackMeta.year,
-            duration: trackMeta.duration || 180,
-            url: trackMeta.audioUrl,
-            coverArt: trackMeta.coverArt,
-            isRipped: true
-        };
-
-        this.setProgress(100);
-        this.log(`SUCCESS: STREAM [${newTrack.title}] READY IN LOCAL DECK!`, 'success');
-
-        return newTrack;
+    extractYouTubeId(url) {
+        const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/;
+        const match = url.match(regExp);
+        return match ? match[1] : null;
     }
 
     /**
-     * Enriches track with playable audio preview and metadata via public search APIs.
+     * Searches YouTube for a matching track and returns the top videoId.
      */
-    async enrichAudioStream(meta, query) {
-        try {
-            const cleanQuery = query.replace(/[^\w\s-]/gi, ' ').trim();
-            const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&media=music&entity=song&limit=1`;
-            
-            const res = await fetch(itunesUrl);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.results && data.results.length > 0) {
-                    const item = data.results[0];
-                    meta.title = item.trackName || meta.title;
-                    meta.artist = item.artistName || meta.artist;
-                    meta.album = item.collectionName || meta.album;
-                    meta.year = item.releaseDate ? item.releaseDate.split('-')[0] : '2077';
-                    if (!meta.coverArt || meta.coverArt.includes('omi_portrait')) {
-                        meta.coverArt = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+    async searchYouTubeVideoId(query) {
+        for (const base of this.pipedInstances) {
+            try {
+                const searchUrl = `${base}/search?q=${encodeURIComponent(query)}&filter=all`;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+                const res = await fetch(searchUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const items = data.items || data;
+                    if (items && items.length > 0) {
+                        for (const item of items) {
+                            if (item.url && item.url.includes('/watch?v=')) {
+                                return this.extractYouTubeId(item.url);
+                            }
+                        }
                     }
-                    meta.audioUrl = item.previewUrl;
-                    meta.duration = Math.round((item.trackTimeMillis || 180000) / 1000);
-                    this.log(`AUDIO MATCHED: ${meta.artist} - ${meta.title}`, 'success');
-                    return meta;
+                }
+            } catch (err) {
+                // Try next instance
+            }
+        }
+
+        // Secondary fallback: Invidious search
+        for (const base of this.invidiousInstances) {
+            try {
+                const searchUrl = `${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+                const res = await fetch(searchUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.length > 0 && data[0].videoId) {
+                        return data[0].videoId;
+                    }
+                }
+            } catch (err) {
+                // Try next
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Queries stream gateways to obtain a direct, playable audio stream URL.
+     */
+    async extractAudioStreamFromGateways(videoId) {
+        // Try Piped instances first
+        for (const base of this.pipedInstances) {
+            try {
+                this.log(`QUERYING GATEWAY: ${new URL(base).hostname}...`, 'info');
+                const streamUrl = `${base}/streams/${videoId}`;
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const res = await fetch(streamUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.audioStreams && data.audioStreams.length > 0) {
+                        // Pick best bitrate audio stream (m4a or webm/opus)
+                        const streams = [...data.audioStreams].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+                        const chosen = streams[0];
+
+                        return {
+                            audioUrl: chosen.url,
+                            title: data.title || 'YouTube Audio',
+                            uploader: data.uploader || 'YouTube Artist',
+                            duration: data.duration || 180,
+                            thumbnail: data.thumbnailUrl
+                        };
+                    }
+                }
+            } catch (err) {
+                // Continue to next gateway
+            }
+        }
+
+        // Try Invidious instances
+        for (const base of this.invidiousInstances) {
+            try {
+                this.log(`QUERYING BACKUP GATEWAY: ${new URL(base).hostname}...`, 'info');
+                const streamUrl = `${base}/api/v1/videos/${videoId}`;
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const res = await fetch(streamUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.adaptiveFormats) {
+                        const audioOnly = data.adaptiveFormats.filter(f => f.type && f.type.startsWith('audio/'));
+                        if (audioOnly.length > 0) {
+                            audioOnly.sort((a, b) => (parseInt(b.bitrate, 10) || 0) - (parseInt(a.bitrate, 10) || 0));
+                            return {
+                                audioUrl: audioOnly[0].url,
+                                title: data.title || 'YouTube Audio',
+                                uploader: data.author || 'YouTube Artist',
+                                duration: data.lengthSeconds || 180,
+                                thumbnail: data.videoThumbnails ? data.videoThumbnails[0]?.url : null
+                            };
+                        }
+                    }
+                }
+            } catch (err) {
+                // Continue
+            }
+        }
+
+        // Tertiary fallback: Cobalt API
+        try {
+            this.log('QUERYING COBALT PROXY GATEWAY...', 'info');
+            const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: `https://www.youtube.com/watch?v=${videoId}`,
+                    downloadMode: 'audio',
+                    audioFormat: 'mp3'
+                })
+            });
+
+            if (cobaltRes.ok) {
+                const cobaltData = await cobaltRes.json();
+                if (cobaltData.url) {
+                    return {
+                        audioUrl: cobaltData.url,
+                        title: 'YouTube Stream',
+                        uploader: 'Cobalt Gateway',
+                        duration: 180,
+                        thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                    };
                 }
             }
         } catch (e) {
-            this.log('PUBLIC INDEX LOOKUP FAILED. SYNTHESIZING NOMAD PROXY STREAM...', 'warn');
+            // Cobalt fallback failed
         }
 
-        // If audio stream could not be legally or directly resolved in browser
-        if (!meta.audioUrl) {
-            this.log('SPOTIFY / YOUTUBE DRM RESTRICTION DETECTED.', 'error');
-            this.log('Browser sandbox cannot decrypt raw Widevine streams directly.', 'warn');
-            this.log('FOR FULL 320K MP3: Run "Pobierz_Ze_Spotify_i_YT.bat" in project folder!', 'system');
-            throw new Error('Spotify/YouTube stream is DRM/CORS protected in browser. Double-click "Pobierz_Ze_Spotify_i_YT.bat" to download the real 320 kbps MP3 with full artwork!');
-        }
-
-        return meta;
-    }
-
-    /**
-     * Native Desktop Mode: Invokes native Rust commands in Tauri (running yt-dlp + ffmpeg).
-     */
-    async ripViaTauri(input, quality) {
-        this.log('TAURI NATIVE BRIDGE DETECTED: EXECUTING NATIVE YT-DLP PIPELINE...', 'system');
-        this.setProgress(25);
-
-        try {
-            const res = await window.__TAURI__.invoke('rip_audio_stream', {
-                url: input,
-                quality: quality
-            });
-
-            this.setProgress(100);
-            this.log(`NATIVE FILE SAVED TO DISK: ${res.filePath}`, 'success');
-
-            return {
-                id: 'tauri-' + Date.now(),
-                title: res.title || 'Downloaded Track',
-                artist: res.artist || 'Unknown Artist',
-                album: res.album || 'Tauri Deck',
-                year: res.year || '2077',
-                duration: res.duration || 210,
-                url: res.filePath,
-                coverArt: res.coverArt || 'assets/omi_portrait.png',
-                isRipped: true
-            };
-        } catch (err) {
-            this.log(`TAURI NATIVE ERROR: ${err}`, 'error');
-            throw err;
-        }
+        throw new Error('All stream gateways are currently unreachable. Check your internet connection.');
     }
 
     sleep(ms) {
