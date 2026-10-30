@@ -50,8 +50,31 @@ class CyberPlaylistManager {
             if (savedFavs) {
                 this.playlists.favorites.trackIds = JSON.parse(savedFavs);
             }
+
+            // Restore persisted tracks (Tauri mode: recreate from file paths)
+            const savedTracks = localStorage.getItem('edgerunners_tracks');
+            if (savedTracks) {
+                const trackList = JSON.parse(savedTracks);
+                for (const t of trackList) {
+                    // Restore cover art stored separately
+                    const storedCover = localStorage.getItem('cover_' + t.id);
+                    if (storedCover) t.coverArt = storedCover;
+
+                    if (typeof window.__TAURI__ !== 'undefined' && t.filePath) {
+                        t.url = window.__TAURI__.core.convertFileSrc(t.filePath);
+                        this.tracks.set(t.id, t);
+                        // If coverArt was not cached or quota was exceeded, restore in background
+                        if (!t.coverArt) {
+                            this.restoreTrackCover(t);
+                        }
+                    } else if (!t.filePath) {
+                        // Non-Tauri blob: URLs cannot be restored — skip
+                    }
+                    // else: Tauri but no filePath — also skip
+                }
+            }
         } catch (e) {
-            console.warn("Błąd odczytu danych playlisty z localStorage:", e);
+            console.warn("Error reading playlist data from localStorage:", e);
         }
     }
 
@@ -59,8 +82,26 @@ class CyberPlaylistManager {
         try {
             localStorage.setItem('edgerunners_playlists', JSON.stringify(this.playlists));
             localStorage.setItem('edgerunners_favorites', JSON.stringify(this.playlists.favorites.trackIds));
+
+            // Persist track metadata. Cover art (base64) is stored separately per-track
+            // to avoid hitting the 5 MB localStorage limit.
+            const trackData = [];
+            this.tracks.forEach(track => {
+                const { file, coverArt, ...rest } = track; // eslint-disable-line no-unused-vars
+                trackData.push(rest);
+                // Store coverArt separately keyed by track id so a single large image
+                // doesn't blow the whole quota when many tracks are saved at once.
+                if (coverArt) {
+                    try {
+                        localStorage.setItem('cover_' + track.id, coverArt);
+                    } catch (e) {
+                        // Image too large — skip silently, will fall back to vinyl SVG
+                    }
+                }
+            });
+            localStorage.setItem('edgerunners_tracks', JSON.stringify(trackData));
         } catch (e) {
-            console.warn("Błąd zapisu do localStorage:", e);
+            console.warn("Error writing to localStorage:", e);
         }
     }
 
@@ -106,12 +147,102 @@ class CyberPlaylistManager {
         return newTracks;
     }
 
+    /**
+     * Tauri mode: add tracks from real filesystem paths.
+     * Uses convertFileSrc for stable URLs and persists filePath for reload.
+     */
+    async addFilesFromPaths(paths) {
+        const newTracks = [];
+        for (const filePath of paths) {
+            const url = window.__TAURI__.core.convertFileSrc(filePath);
+
+            // Extract filename (handle both / and \ separators)
+            const rawName = filePath.replace(/\\/g, '/').split('/').pop();
+            let nameNoExt = rawName.replace(/\.[^.]+$/, '');
+            try {
+                nameNoExt = decodeURIComponent(nameNoExt);
+            } catch (_) {}
+
+            let fallbackTitle = nameNoExt;
+            let fallbackArtist = 'Unknown Artist';
+            const cleanName = nameNoExt.replace(/^\d+[\s.-]+/, '');
+            if (cleanName.includes(' - ')) {
+                const parts = cleanName.split(' - ');
+                fallbackArtist = parts[0].trim();
+                fallbackTitle = parts.slice(1).join(' - ').trim();
+            }
+
+            const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+            // Attempt ID3 parsing via fetch + File object
+            let metadata = {};
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const file = new File([arrayBuffer], rawName, { type: 'audio/mpeg' });
+                metadata = await window.ID3Parser.parse(file);
+            } catch (e) {
+                // Fall back to filename-based metadata
+            }
+
+            let duration = 0;
+            try {
+                duration = await this.getAudioDuration(url);
+            } catch (e) {
+                duration = 0;
+            }
+
+            const track = {
+                id,
+                filePath,
+                url,
+                title: metadata.title || fallbackTitle,
+                artist: metadata.artist || fallbackArtist,
+                album: metadata.album || 'Unknown Album',
+                year: metadata.year || '',
+                coverArt: metadata.coverArt || null,
+                duration,
+                dateAdded: Date.now()
+            };
+
+            this.tracks.set(id, track);
+            this.playlists.all.trackIds.push(id);
+            newTracks.push(track);
+        }
+
+        this.saveToStorage();
+        this.notifyChange();
+        return newTracks;
+    }
+
     addCustomTrack(track) {
         this.tracks.set(track.id, track);
         if (!this.playlists.all.trackIds.includes(track.id)) {
             this.playlists.all.trackIds.push(track.id);
         }
         this.notifyChange();
+    }
+
+    async restoreTrackCover(track) {
+        if (!track || !track.url || track.coverArt || !window.ID3Parser) return;
+        try {
+            const response = await fetch(track.url);
+            const arrayBuffer = await response.arrayBuffer();
+            const rawName = (track.filePath || 'track.mp3').replace(/\\/g, '/').split('/').pop();
+            const file = new File([arrayBuffer], rawName, { type: 'audio/mpeg' });
+            const metadata = await window.ID3Parser.parse(file);
+            if (metadata.coverArt) {
+                track.coverArt = metadata.coverArt;
+                try {
+                    localStorage.setItem('cover_' + track.id, metadata.coverArt);
+                } catch (_) {}
+                if (window.onCoverRestored) {
+                    window.onCoverRestored(track);
+                }
+            }
+        } catch (e) {
+            // silent fallback
+        }
     }
 
     getAudioDuration(url) {
@@ -122,8 +253,8 @@ class CyberPlaylistManager {
                 resolve(tempAudio.duration || 0);
             });
             tempAudio.addEventListener('error', () => resolve(0));
-            // Timeout safety
-            setTimeout(() => resolve(0), 1200);
+            // Timeout safety (fast so large folders import smoothly)
+            setTimeout(() => resolve(0), 400);
         });
     }
 

@@ -339,6 +339,18 @@ body::before {
     box-shadow: var(--omi-blue-glow);
 }
 
+.btn-cyber-ripper {
+    background: rgba(176, 38, 255, 0.12);
+    border: 1px solid var(--omi-purple);
+    color: #E085FF;
+}
+
+.btn-cyber-ripper:hover {
+    background: var(--omi-purple);
+    color: #000;
+    box-shadow: 0 0 14px rgba(176, 38, 255, 0.7);
+}
+
 .playlist-section {
     flex: 1;
     overflow-y: auto;
