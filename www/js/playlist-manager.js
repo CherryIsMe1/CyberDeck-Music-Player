@@ -67,18 +67,15 @@ class CyberPlaylistManager {
                         seenPaths.add(norm);
                     }
 
-                    // Restore cover art stored separately
-                    const storedCover = localStorage.getItem('cover_' + t.id);
-                    if (storedCover) t.coverArt = storedCover;
+                    // Cover art is always re-extracted from files on startup
+                    // (localStorage is too small for many track covers)
 
                     if (typeof window.__TAURI__ !== 'undefined' && t.filePath) {
                         t.url = window.__TAURI__.core.convertFileSrc(t.filePath);
                         this.tracks.set(t.id, t);
                         validIds.add(t.id);
-                        // If coverArt was not cached or quota was exceeded, restore in background
-                        if (!t.coverArt) {
-                            this.restoreTrackCover(t);
-                        }
+                        // Always restore cover art from actual file
+                        this.restoreTrackCover(t);
                     } else if (!t.filePath) {
                         // Non-Tauri blob: URLs cannot be restored
                     }
@@ -102,21 +99,13 @@ class CyberPlaylistManager {
             localStorage.setItem('edgerunners_playlists', JSON.stringify(this.playlists));
             localStorage.setItem('edgerunners_favorites', JSON.stringify(this.playlists.favorites.trackIds));
 
-            // Persist track metadata. Cover art (base64) is stored separately per-track
-            // to avoid hitting the 5 MB localStorage limit.
+            // Persist track metadata (without cover art or file blobs — saves space).
+            // Cover art is re-extracted from the actual audio files on startup via
+            // restoreTrackCover(), so we never store it in localStorage.
             const trackData = [];
             this.tracks.forEach(track => {
                 const { file, coverArt, ...rest } = track; // eslint-disable-line no-unused-vars
                 trackData.push(rest);
-                // Store coverArt separately keyed by track id so a single large image
-                // doesn't blow the whole quota when many tracks are saved at once.
-                if (coverArt) {
-                    try {
-                        localStorage.setItem('cover_' + track.id, coverArt);
-                    } catch (e) {
-                        // Image too large — skip silently, will fall back to vinyl SVG
-                    }
-                }
             });
             localStorage.setItem('edgerunners_tracks', JSON.stringify(trackData));
         } catch (e) {
@@ -274,7 +263,18 @@ class CyberPlaylistManager {
     }
 
     async restoreTrackCover(track) {
-        if (!track || !track.url || track.coverArt || !window.ID3Parser) return;
+        if (!track || !track.url || track.coverArt) return;
+        // Wait for ID3Parser to be available (scripts may load async)
+        const waitForParser = () => new Promise(resolve => {
+            if (window.ID3Parser) return resolve();
+            const check = setInterval(() => {
+                if (window.ID3Parser) { clearInterval(check); resolve(); }
+            }, 50);
+            setTimeout(() => { clearInterval(check); resolve(); }, 3000);
+        });
+        await waitForParser();
+        if (!window.ID3Parser) return;
+
         try {
             const response = await fetch(track.url);
             const arrayBuffer = await response.arrayBuffer();
@@ -283,15 +283,13 @@ class CyberPlaylistManager {
             const metadata = await window.ID3Parser.parse(file);
             if (metadata.coverArt) {
                 track.coverArt = metadata.coverArt;
-                try {
-                    localStorage.setItem('cover_' + track.id, metadata.coverArt);
-                } catch (_) {}
+                // Notify the UI that a cover was restored
                 if (window.onCoverRestored) {
                     window.onCoverRestored(track);
                 }
             }
         } catch (e) {
-            // silent fallback
+            // silent fallback — disc shows vinyl SVG
         }
     }
 

@@ -499,8 +499,9 @@ body::before {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 144px;
-    height: 144px;
+    /* Scale with container: 28% of the smaller canvas dimension, min 120px, max 220px */
+    width: clamp(120px, 28vmin, 220px);
+    height: clamp(120px, 28vmin, 220px);
     border-radius: 50%;
     border: 2px dashed rgba(255, 26, 117, 0.55);
     display: flex;
@@ -527,8 +528,8 @@ body::before {
 }
 
 .holo-cover-art {
-    width: 112px;
-    height: 112px;
+    width: 82%;
+    height: 82%;
     border-radius: 50%;
     object-fit: cover;
     border: 2.5px solid var(--omi-pink);

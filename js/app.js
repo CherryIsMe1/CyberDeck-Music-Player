@@ -115,6 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (current && current.id === restoredTrack.id) {
             updateCoverArtDisplay();
         }
+        // Also update the track list row thumbnail if visible
+        const row = document.querySelector(`.track-row[data-id="${restoredTrack.id}"] .track-thumb`);
+        if (row && restoredTrack.coverArt) {
+            row.src = restoredTrack.coverArt;
+        }
     };
 
     // SVG Icons
