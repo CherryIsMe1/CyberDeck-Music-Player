@@ -55,7 +55,18 @@ class CyberPlaylistManager {
             const savedTracks = localStorage.getItem('edgerunners_tracks');
             if (savedTracks) {
                 const trackList = JSON.parse(savedTracks);
+                const seenPaths = new Set();
+                const validIds = new Set();
+
                 for (const t of trackList) {
+                    if (t.filePath) {
+                        const norm = t.filePath.toLowerCase().replace(/\\/g, '/');
+                        if (seenPaths.has(norm)) {
+                            continue; // Skip duplicate file
+                        }
+                        seenPaths.add(norm);
+                    }
+
                     // Restore cover art stored separately
                     const storedCover = localStorage.getItem('cover_' + t.id);
                     if (storedCover) t.coverArt = storedCover;
@@ -63,15 +74,23 @@ class CyberPlaylistManager {
                     if (typeof window.__TAURI__ !== 'undefined' && t.filePath) {
                         t.url = window.__TAURI__.core.convertFileSrc(t.filePath);
                         this.tracks.set(t.id, t);
+                        validIds.add(t.id);
                         // If coverArt was not cached or quota was exceeded, restore in background
                         if (!t.coverArt) {
                             this.restoreTrackCover(t);
                         }
                     } else if (!t.filePath) {
-                        // Non-Tauri blob: URLs cannot be restored — skip
+                        // Non-Tauri blob: URLs cannot be restored
                     }
-                    // else: Tauri but no filePath — also skip
                 }
+
+                // Filter out any duplicate or removed track IDs from all playlists
+                Object.keys(this.playlists).forEach(key => {
+                    const pl = this.playlists[key];
+                    if (pl && Array.isArray(pl.trackIds)) {
+                        pl.trackIds = pl.trackIds.filter(id => validIds.has(id));
+                    }
+                });
             }
         } catch (e) {
             console.warn("Error reading playlist data from localStorage:", e);
@@ -107,11 +126,25 @@ class CyberPlaylistManager {
 
     async addFiles(fileList) {
         const newTracks = [];
+        const existingKeys = new Set(
+            Array.from(this.tracks.values()).map(t => {
+                if (t.filePath) return t.filePath.toLowerCase().replace(/\\/g, '/');
+                if (t.file) return `${t.file.name}_${t.file.size}`;
+                return `${t.title}_${t.artist}`;
+            })
+        );
+
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
             if (!file.name.toLowerCase().endsWith('.mp3') && !file.type.includes('audio')) {
                 continue;
             }
+
+            const fileKey = `${file.name}_${file.size}`;
+            if (existingKeys.has(fileKey)) {
+                continue; // Skip duplicate file
+            }
+            existingKeys.add(fileKey);
 
             const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
             const metadata = await window.ID3Parser.parse(file);
@@ -143,7 +176,10 @@ class CyberPlaylistManager {
             newTracks.push(track);
         }
 
-        this.notifyChange();
+        if (newTracks.length > 0) {
+            this.saveToStorage();
+            this.notifyChange();
+        }
         return newTracks;
     }
 
@@ -153,7 +189,19 @@ class CyberPlaylistManager {
      */
     async addFilesFromPaths(paths) {
         const newTracks = [];
+        const existingPaths = new Set(
+            Array.from(this.tracks.values())
+                .filter(t => t.filePath)
+                .map(t => t.filePath.toLowerCase().replace(/\\/g, '/'))
+        );
+
         for (const filePath of paths) {
+            const normPath = filePath.toLowerCase().replace(/\\/g, '/');
+            if (existingPaths.has(normPath)) {
+                continue; // Skip duplicate file
+            }
+            existingPaths.add(normPath);
+
             const url = window.__TAURI__.core.convertFileSrc(filePath);
 
             // Extract filename (handle both / and \ separators)
@@ -210,8 +258,10 @@ class CyberPlaylistManager {
             newTracks.push(track);
         }
 
-        this.saveToStorage();
-        this.notifyChange();
+        if (newTracks.length > 0) {
+            this.saveToStorage();
+            this.notifyChange();
+        }
         return newTracks;
     }
 
