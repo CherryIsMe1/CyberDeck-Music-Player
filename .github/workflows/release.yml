@@ -8,21 +8,12 @@ on:
 
 jobs:
   # --------------------------------------------------------------------------
-  # 1. DESKTOP BUILDS: WINDOWS 11 (.exe/.msi) & LINUX DEBIAN (.deb/.AppImage)
+  # WINDOWS 11 (.exe / .msi) BUILD
   # --------------------------------------------------------------------------
-  build-tauri:
+  build-windows:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'windows-latest'
-            args: ''
-          - platform: 'ubuntu-22.04'
-            args: ''
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,16 +21,9 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Regenerate icon.ico (Windows only)
-        if: matrix.platform == 'windows-latest'
+      - name: Regenerate icon.ico
         shell: pwsh
         run: magick src-tauri/icons/icon.png -define icon:auto-resize=256,128,64,48,32,16 src-tauri/icons/icon.ico
-
-      - name: Install Linux Debian/Ubuntu Dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Build Tauri Desktop Application
         uses: tauri-apps/tauri-action@v0
@@ -48,52 +32,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'CYBERDECK // SNAKE NATION ${{ github.ref_name }}'
-          releaseBody: 'Official Cyberdeck Snake Nation release for Windows 11, Linux Debian, and Android.'
+          releaseBody: 'Official Cyberdeck Snake Nation release for Windows 11.'
           releaseDraft: false
           prerelease: false
-
-  # --------------------------------------------------------------------------
-  # 2. MOBILE BUILD: ANDROID (.apk)
-  # --------------------------------------------------------------------------
-  build-android:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '21'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Capacitor & Setup Android Project
-        run: |
-          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
-          npx cap add android
-          npx cap sync android
-
-      - name: Build Android APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-          cd ..
-          mkdir -p release-apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-apk/cyberdeck-player-android.apk
-
-      - name: Upload APK to Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: release-apk/cyberdeck-player-android.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
