@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
         folderInput: document.getElementById('folderInput'),
         btnImportFiles: document.getElementById('btnImportFiles'),
         btnImportFolder: document.getElementById('btnImportFolder'),
-        btnTestStream: document.getElementById('btnTestStream'),
         dropZoneOverlay: document.getElementById('dropZoneOverlay'),
 
         // Player Controls
@@ -111,6 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    window.onCoverRestored = (restoredTrack) => {
+        const current = window.PlaylistManager.getCurrentTrack();
+        if (current && current.id === restoredTrack.id) {
+            updateCoverArtDisplay();
+        }
+    };
+
     // SVG Icons
     const ICONS = {
         play: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
@@ -170,6 +176,11 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.trackLiveAlbum.textContent = `${track.album || 'NOMAD_DECK'} • ${track.year || '2077'}`;
 
         updateCoverArtDisplay();
+        if (!track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
+            window.PlaylistManager.restoreTrackCover(track).then(() => {
+                updateCoverArtDisplay();
+            });
+        }
 
         // Set system MediaSession
         if ('mediaSession' in navigator) {
@@ -298,6 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
         coverMode = coverMode === 'omi' ? 'album' : 'omi';
         localStorage.setItem('edgerunners_cover_mode', coverMode);
         updateCoverArtDisplay();
+        if (!track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
+            window.PlaylistManager.restoreTrackCover(track).then(() => {
+                updateCoverArtDisplay();
+            });
+        }
     }
 
     elements.btnToggleCover.addEventListener('click', cycleCoverMode);
@@ -418,13 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Demo Track Generator
-    elements.btnTestStream.addEventListener('click', async () => {
-        window.CyberSound.playSandevistan();
-        elements.btnTestStream.textContent = 'GENERATING SYNTH...';
-        await loadSampleDemoTrack('combat');
-        elements.btnTestStream.textContent = 'LOAD DEMO';
-    });
+
 
     async function loadSampleDemoTrack(type) {
         const sample = await window.CyberSampleGenerator.generateTrack(type);

@@ -339,6 +339,18 @@ body::before {
     box-shadow: var(--omi-blue-glow);
 }
 
+.btn-cyber-ripper {
+    background: rgba(176, 38, 255, 0.12);
+    border: 1px solid var(--omi-purple);
+    color: #E085FF;
+}
+
+.btn-cyber-ripper:hover {
+    background: var(--omi-purple);
+    color: #000;
+    box-shadow: 0 0 14px rgba(176, 38, 255, 0.7);
+}
+
 .playlist-section {
     flex: 1;
     overflow-y: auto;
@@ -473,15 +485,9 @@ body::before {
     position: relative;
     width: 100%;
     min-height: 220px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 #cyberVisualizerCanvas {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
     display: block;
@@ -504,7 +510,6 @@ body::before {
     cursor: pointer;
     box-shadow: 0 0 28px rgba(255, 26, 117, 0.35);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    z-index: 2;
 }
 
 .holo-turntable:hover {

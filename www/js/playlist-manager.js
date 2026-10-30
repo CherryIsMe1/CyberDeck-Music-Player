@@ -56,9 +56,17 @@ class CyberPlaylistManager {
             if (savedTracks) {
                 const trackList = JSON.parse(savedTracks);
                 for (const t of trackList) {
+                    // Restore cover art stored separately
+                    const storedCover = localStorage.getItem('cover_' + t.id);
+                    if (storedCover) t.coverArt = storedCover;
+
                     if (typeof window.__TAURI__ !== 'undefined' && t.filePath) {
                         t.url = window.__TAURI__.core.convertFileSrc(t.filePath);
                         this.tracks.set(t.id, t);
+                        // If coverArt was not cached or quota was exceeded, restore in background
+                        if (!t.coverArt) {
+                            this.restoreTrackCover(t);
+                        }
                     } else if (!t.filePath) {
                         // Non-Tauri blob: URLs cannot be restored — skip
                     }
@@ -75,11 +83,21 @@ class CyberPlaylistManager {
             localStorage.setItem('edgerunners_playlists', JSON.stringify(this.playlists));
             localStorage.setItem('edgerunners_favorites', JSON.stringify(this.playlists.favorites.trackIds));
 
-            // Persist track metadata (omit the File object; keep filePath for Tauri restore)
+            // Persist track metadata. Cover art (base64) is stored separately per-track
+            // to avoid hitting the 5 MB localStorage limit.
             const trackData = [];
             this.tracks.forEach(track => {
-                const { file, ...rest } = track; // eslint-disable-line no-unused-vars
+                const { file, coverArt, ...rest } = track; // eslint-disable-line no-unused-vars
                 trackData.push(rest);
+                // Store coverArt separately keyed by track id so a single large image
+                // doesn't blow the whole quota when many tracks are saved at once.
+                if (coverArt) {
+                    try {
+                        localStorage.setItem('cover_' + track.id, coverArt);
+                    } catch (e) {
+                        // Image too large — skip silently, will fall back to vinyl SVG
+                    }
+                }
             });
             localStorage.setItem('edgerunners_tracks', JSON.stringify(trackData));
         } catch (e) {
@@ -203,6 +221,28 @@ class CyberPlaylistManager {
             this.playlists.all.trackIds.push(track.id);
         }
         this.notifyChange();
+    }
+
+    async restoreTrackCover(track) {
+        if (!track || !track.url || track.coverArt || !window.ID3Parser) return;
+        try {
+            const response = await fetch(track.url);
+            const arrayBuffer = await response.arrayBuffer();
+            const rawName = (track.filePath || 'track.mp3').replace(/\\/g, '/').split('/').pop();
+            const file = new File([arrayBuffer], rawName, { type: 'audio/mpeg' });
+            const metadata = await window.ID3Parser.parse(file);
+            if (metadata.coverArt) {
+                track.coverArt = metadata.coverArt;
+                try {
+                    localStorage.setItem('cover_' + track.id, metadata.coverArt);
+                } catch (_) {}
+                if (window.onCoverRestored) {
+                    window.onCoverRestored(track);
+                }
+            }
+        } catch (e) {
+            // silent fallback
+        }
     }
 
     getAudioDuration(url) {

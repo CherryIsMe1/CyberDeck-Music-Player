@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
         folderInput: document.getElementById('folderInput'),
         btnImportFiles: document.getElementById('btnImportFiles'),
         btnImportFolder: document.getElementById('btnImportFolder'),
-        btnTestStream: document.getElementById('btnTestStream'),
         dropZoneOverlay: document.getElementById('dropZoneOverlay'),
 
         // Player Controls
@@ -111,6 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    window.onCoverRestored = (restoredTrack) => {
+        const current = window.PlaylistManager.getCurrentTrack();
+        if (current && current.id === restoredTrack.id) {
+            updateCoverArtDisplay();
+        }
+    };
+
     // SVG Icons
     const ICONS = {
         play: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
@@ -150,11 +156,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePlayButtonState(isPlaying) {
         if (isPlaying) {
             elements.playMasterIcon.innerHTML = ICONS.pause;
-            elements.btnPlayMaster.setAttribute('title', 'Wstrzymaj (Spacja)');
+            elements.btnPlayMaster.setAttribute('title', 'Pause (Space)');
             elements.holoTurntable.classList.add('spinning');
         } else {
             elements.playMasterIcon.innerHTML = ICONS.play;
-            elements.btnPlayMaster.setAttribute('title', 'Odtwórz (Spacja)');
+            elements.btnPlayMaster.setAttribute('title', 'Play (Space)');
             elements.holoTurntable.classList.remove('spinning');
         }
     }
@@ -165,11 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
         window.PlaylistManager.setCurrentTrack(track.id);
 
         // Update Now Playing UI
-        elements.trackLiveTitle.textContent = track.title || 'Nieznany utwór';
-        elements.trackLiveArtist.textContent = track.artist || 'Nieznany wykonawca';
+        elements.trackLiveTitle.textContent = track.title || 'Unknown Track';
+        elements.trackLiveArtist.textContent = track.artist || 'Unknown Artist';
         elements.trackLiveAlbum.textContent = `${track.album || 'NOMAD_DECK'} • ${track.year || '2077'}`;
 
         updateCoverArtDisplay();
+        if (!track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
+            window.PlaylistManager.restoreTrackCover(track).then(() => {
+                updateCoverArtDisplay();
+            });
+        }
 
         // Set system MediaSession
         if ('mediaSession' in navigator) {
@@ -245,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mode = window.PlaylistManager.cycleRepeat();
         elements.btnRepeat.classList.toggle('active', mode !== 'off');
         elements.repeatLabel.textContent = mode === 'one' ? 'LOOP 1' : mode === 'all' ? 'LOOP ALL' : 'LOOP OFF';
-        elements.btnRepeat.setAttribute('title', `Pętla: ${mode.toUpperCase()}`);
+        elements.btnRepeat.setAttribute('title', `Loop: ${mode.toUpperCase()}`);
     });
 
     // Seek bar
@@ -298,6 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
         coverMode = coverMode === 'omi' ? 'album' : 'omi';
         localStorage.setItem('edgerunners_cover_mode', coverMode);
         updateCoverArtDisplay();
+        if (!track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
+            window.PlaylistManager.restoreTrackCover(track).then(() => {
+                updateCoverArtDisplay();
+            });
+        }
     }
 
     elements.btnToggleCover.addEventListener('click', cycleCoverMode);
@@ -340,14 +356,60 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // IMPORT FILES & FOLDERS
     // =========================================================================
-    elements.btnImportFiles.addEventListener('click', () => {
+    const isTauri = typeof window.__TAURI__ !== 'undefined';
+
+    elements.btnImportFiles.addEventListener('click', async () => {
         window.CyberSound.playClick();
-        elements.fileInput.click();
+        if (isTauri) {
+            try {
+                const paths = await window.__TAURI__.dialog.open({
+                    multiple: true,
+                    filters: [{ name: 'Audio', extensions: ['mp3', 'mp4', 'flac', 'wav', 'ogg', 'm4a', 'aac'] }]
+                });
+                if (paths) {
+                    const pathArray = Array.isArray(paths) ? paths : [paths];
+                    const added = await window.PlaylistManager.addFilesFromPaths(pathArray);
+                    window.CyberSound.playSuccess();
+                    renderPlaylists();
+                    renderTracks();
+                    if (!window.PlaylistManager.currentTrackId && added.length > 0) {
+                        playTrack(added[0]);
+                    }
+                }
+            } catch (err) {
+                console.error('Tauri file dialog error:', err);
+            }
+        } else {
+            elements.fileInput.click();
+        }
     });
 
-    elements.btnImportFolder.addEventListener('click', () => {
+    elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
-        elements.folderInput.click();
+        if (isTauri) {
+            try {
+                const folder = await window.__TAURI__.dialog.open({
+                    directory: true,
+                    multiple: false
+                });
+                if (folder) {
+                    const audioPaths = await window.__TAURI__.core.invoke('read_audio_files_in_dir', { dirPath: folder });
+                    if (audioPaths && audioPaths.length > 0) {
+                        const added = await window.PlaylistManager.addFilesFromPaths(audioPaths);
+                        window.CyberSound.playSuccess();
+                        renderPlaylists();
+                        renderTracks();
+                        if (!window.PlaylistManager.currentTrackId && added.length > 0) {
+                            playTrack(added[0]);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Tauri folder dialog error:', err);
+            }
+        } else {
+            elements.folderInput.click();
+        }
     });
 
     elements.fileInput.addEventListener('change', async (e) => {
@@ -372,13 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Demo Track Generator
-    elements.btnTestStream.addEventListener('click', async () => {
-        window.CyberSound.playSandevistan();
-        elements.btnTestStream.textContent = 'GENERATING SYNTH...';
-        await loadSampleDemoTrack('combat');
-        elements.btnTestStream.textContent = 'LOAD DEMO';
-    });
+
 
     async function loadSampleDemoTrack(type) {
         const sample = await window.CyberSampleGenerator.generateTrack(type);
@@ -556,17 +612,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Add to selected playlist
                 const targetPlId = elements.ripperTargetPlaylist.value || 'all';
-                window.PlaylistManager.addCustomTrack(rippedTrack);
-                if (targetPlId !== 'all') {
-                    window.PlaylistManager.addTrackToPlaylist(targetPlId, rippedTrack.id);
+                if (isTauri && rippedTrack.filePath) {
+                    // Native rip: use addFilesFromPaths so the track is persisted properly
+                    const added = await window.PlaylistManager.addFilesFromPaths([rippedTrack.filePath]);
+                    const persistedTrack = added[0] || rippedTrack;
+                    if (targetPlId !== 'all') {
+                        window.PlaylistManager.addTrackToPlaylist(targetPlId, persistedTrack.id);
+                    }
+                    window.CyberSound.playSuccess();
+                    renderPlaylists();
+                    renderTracks();
+                    playTrack(persistedTrack);
+                } else {
+                    window.PlaylistManager.addCustomTrack(rippedTrack);
+                    if (targetPlId !== 'all') {
+                        window.PlaylistManager.addTrackToPlaylist(targetPlId, rippedTrack.id);
+                    }
+                    window.CyberSound.playSuccess();
+                    renderPlaylists();
+                    renderTracks();
+                    playTrack(rippedTrack);
                 }
-
-                window.CyberSound.playSuccess();
-                renderPlaylists();
-                renderTracks();
-
-                // Auto-play the newly decrypted track!
-                playTrack(rippedTrack);
 
                 if (elements.ripperStatusDot) elements.ripperStatusDot.style.background = 'var(--omi-green)';
                 setTimeout(() => {
