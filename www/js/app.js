@@ -503,6 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.stopPropagation();
                     if (confirm(`Delete playlist "${pl.name}"?`)) {
                         window.PlaylistManager.deletePlaylist(pl.id);
+                        elements.activePlaylistTitle.textContent = window.PlaylistManager.playlists[window.PlaylistManager.activePlaylistId].name;
                         renderPlaylists();
                         renderTracks();
                     }
@@ -613,31 +614,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const quality = elements.ripperQuality.value;
-                const rippedTrack = await window.CyberRipperEngine.ripStream(url, quality);
-
-                // Add to selected playlist
+                const ripResult = await window.CyberRipperEngine.ripStream(url, quality);
+                const rippedTracks = Array.isArray(ripResult) ? ripResult : [ripResult];
                 const targetPlId = elements.ripperTargetPlaylist.value || 'all';
-                if (isTauri && rippedTrack.filePath) {
-                    // Native rip: use addFilesFromPaths so the track is persisted properly
-                    const added = await window.PlaylistManager.addFilesFromPaths([rippedTrack.filePath]);
-                    const persistedTrack = added[0] || rippedTrack;
-                    if (targetPlId !== 'all') {
-                        window.PlaylistManager.addTrackToPlaylist(targetPlId, persistedTrack.id);
-                    }
-                    window.CyberSound.playSuccess();
-                    renderPlaylists();
-                    renderTracks();
-                    playTrack(persistedTrack);
+                let tracksToPlay = rippedTracks;
+                if (isTauri && rippedTracks.some(track => track.filePath)) {
+                    const paths = rippedTracks.filter(track => track.filePath).map(track => track.filePath);
+                    await window.PlaylistManager.addFilesFromPaths(paths);
+                    const normalizedPaths = new Set(paths.map(path => path.toLowerCase().replace(/\\/g, '/')));
+                    tracksToPlay = Array.from(window.PlaylistManager.tracks.values()).filter(track =>
+                        track.filePath && normalizedPaths.has(track.filePath.toLowerCase().replace(/\\/g, '/'))
+                    );
+                    if (targetPlId !== 'all') tracksToPlay.forEach(track => window.PlaylistManager.addTrackToPlaylist(targetPlId, track.id));
                 } else {
-                    window.PlaylistManager.addCustomTrack(rippedTrack);
-                    if (targetPlId !== 'all') {
-                        window.PlaylistManager.addTrackToPlaylist(targetPlId, rippedTrack.id);
-                    }
-                    window.CyberSound.playSuccess();
-                    renderPlaylists();
-                    renderTracks();
-                    playTrack(rippedTrack);
+                    rippedTracks.forEach(track => {
+                        window.PlaylistManager.addCustomTrack(track);
+                        if (targetPlId !== 'all') window.PlaylistManager.addTrackToPlaylist(targetPlId, track.id);
+                    });
                 }
+                window.CyberSound.playSuccess();
+                renderPlaylists();
+                renderTracks();
+                if (tracksToPlay.length) playTrack(tracksToPlay[0]);
 
                 if (elements.ripperStatusDot) elements.ripperStatusDot.style.background = 'var(--omi-green)';
                 setTimeout(() => {

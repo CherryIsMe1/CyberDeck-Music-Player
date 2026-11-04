@@ -1,6 +1,6 @@
 {
   "appId": "com.snakenation.cyberdeck",
-  "appName": "Cyberdeck Snake Nation",
+  "appName": "SNDeck Snake Nation",
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {

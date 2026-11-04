@@ -1,5 +1,5 @@
 /**
- * Cyberdeck Netrunner Ripper Engine (In-App Multi-Gateway Stream Extractor)
+ * SNDeck Netrunner Ripper Engine (In-App Multi-Gateway Stream Extractor)
  * Extracts real audio streams directly inside the web app from YouTube, Spotify, and direct URLs.
  * Operates without external scripts or batch files.
  */
@@ -43,7 +43,7 @@ class CyberRipperEngine {
     }
 
     /**
-     * Main entry point: Rips and injects audio stream directly into the Cyberdeck.
+     * Main entry point: Rips and injects audio stream directly into the SNDeck.
      */
     async ripStream(rawInput, quality = '320k') {
         if (this.isProcessing) {
@@ -60,25 +60,24 @@ class CyberRipperEngine {
             // -- TAURI NATIVE PATH --------------------------------------------
             const isTauri = typeof window.__TAURI__ !== 'undefined';
             if (isTauri) {
-                this.log('NATIVE YT-DLP ENGINE DETECTED — USING SYSTEM RIPPER...', 'system');
+                this.log('NATIVE YT-DLP ENGINE DETECTED - USING SYSTEM RIPPER...', 'system');
                 this.setProgress(10);
                 try {
-                    const result = await window.__TAURI__.core.invoke('rip_audio_stream', { url: input, quality });
+                    const results = await window.__TAURI__.core.invoke('rip_audio_stream', { url: input, quality });
                     this.setProgress(100);
-                    this.log('DOWNLOAD COMPLETE: ' + result.filePath, 'success');
-                    const fileUrl = window.__TAURI__.core.convertFileSrc(result.filePath);
-                    return {
-                        id: 'ripped-' + Date.now(),
+                    this.log('DOWNLOAD COMPLETE: ' + results.length + ' track(s)', 'success');
+                    return results.map((result, index) => ({
+                        id: 'ripped-' + Date.now() + '-' + index,
                         title: result.title || 'Ripped Track',
                         artist: result.artist || 'YouTube',
-                        album: result.album || 'Cyberdeck Stream',
-                        year: result.year || '2077',
+                        album: result.album || 'SNDeck',
+                        year: result.year || '',
                         duration: result.duration || 0,
-                        url: fileUrl,
+                        url: window.__TAURI__.core.convertFileSrc(result.filePath),
                         filePath: result.filePath,
                         coverArt: null,
                         isRipped: true
-                    };
+                    }));
                 } catch (err) {
                     this.log('NATIVE RIPPER ERROR: ' + err, 'error');
                     throw new Error(err);
@@ -131,7 +130,7 @@ class CyberRipperEngine {
                     id: 'direct-' + Date.now(),
                     title: decodeURIComponent(filename),
                     artist: 'Network Stream',
-                    album: 'Cyberdeck Ripper',
+                    album: 'SNDeck Ripper',
                     year: '2077',
                     duration: 240,
                     url: input,
@@ -164,13 +163,13 @@ class CyberRipperEngine {
             const finalTitle = initialTitle || streamData.title;
 
             this.setProgress(100);
-            this.log(`SUCCESS: STREAM READY IN CYBERDECK DECK!`, 'success');
+            this.log(`SUCCESS: STREAM READY IN SNDECK DECK!`, 'success');
 
             return {
                 id: 'yt-' + videoId + '-' + Date.now(),
                 title: finalTitle,
                 artist: streamData.uploader || 'YouTube Audio',
-                album: 'Cyberdeck Stream 2077',
+                album: 'SNDeck Stream',
                 year: '2077',
                 duration: streamData.duration || 180,
                 url: streamData.audioUrl,

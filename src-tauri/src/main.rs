@@ -3,7 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::time::SystemTime;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RippedTrackResult {
@@ -38,7 +37,7 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     // 2. Check app-local dir
     let local_dir = dirs::data_local_dir()
         .ok_or_else(|| "Cannot determine local data directory".to_string())?
-        .join("Cyberdeck")
+        .join("SNDeck")
         .join("bin");
 
     #[cfg(target_os = "windows")]
@@ -51,7 +50,7 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     }
 
     // 3. Download yt-dlp
-    println!("[Cyberdeck] yt-dlp not found — downloading to {:?}", ytdlp_path);
+    println!("[SNDeck] yt-dlp not found — downloading to {:?}", ytdlp_path);
     std::fs::create_dir_all(&local_dir)
         .map_err(|e| format!("Cannot create bin dir: {}", e))?;
 
@@ -123,11 +122,11 @@ async fn read_audio_files_in_dir(dir_path: String) -> Result<Vec<String>, String
 
 /// Native command invoked from frontend: window.__TAURI__.core.invoke('rip_audio_stream', { url, quality })
 #[tauri::command]
-async fn rip_audio_stream(url: String, quality: String) -> Result<RippedTrackResult, String> {
-    println!("[Cyberdeck Native Ripper] Target URL: {}, Quality: {}", url, quality);
+async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrackResult>, String> {
+    println!("[SNDeck Native Ripper] Target URL: {}, Quality: {}", url, quality);
 
-    // 1. Check for ffmpeg in PATH or in local Cyberdeck bin
-    let local_bin = dirs::data_local_dir().map(|d| d.join("Cyberdeck").join("bin"));
+    // 1. Check for ffmpeg in PATH or in local SNDeck bin
+    let local_bin = dirs::data_local_dir().map(|d| d.join("SNDeck").join("bin"));
     let local_ffmpeg = local_bin.as_ref().map(|b| {
         #[cfg(target_os = "windows")]
         { b.join("ffmpeg.exe") }
@@ -147,7 +146,7 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<RippedTrackRes
 
     let ffmpeg_ok = ffmpeg_in_path || ffmpeg_in_local;
     if !ffmpeg_ok {
-        println!("[Cyberdeck] ffmpeg not found — downloading native audio format without transcoding.");
+        println!("[SNDeck] ffmpeg not found — downloading native audio format without transcoding.");
     }
 
     // 2. Resolve yt-dlp executable
@@ -159,19 +158,16 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<RippedTrackRes
             .map(|h| h.join("Music"))
             .unwrap_or_else(|| PathBuf::from("./Music"))
     });
-    music_dir.push("Cyberdeck");
+    music_dir.push("SNDeck");
     std::fs::create_dir_all(&music_dir)
         .map_err(|e| format!("Cannot create music dir: {}", e))?;
 
-    let output_template = music_dir.join("%(title)s.%(ext)s");
+    let output_template = music_dir.join("%(title)s [%(id)s].%(ext)s");
     let bit_rate = match quality.as_str() {
         "192k" => "192K",
         "256k" => "256K",
         _ => "320K",
     };
-
-    // Record timestamp BEFORE running yt-dlp so we can detect the new file
-    let before_time = SystemTime::now();
 
     // 4. Run yt-dlp
     let ytdlp_str = ytdlp_path.to_string_lossy().to_string();
@@ -200,7 +196,8 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<RippedTrackRes
             cmd.arg("-f").arg("ba[ext=m4a]/ba/b");
         }
 
-        cmd.arg("--no-playlist")
+        cmd.arg("--yes-playlist")
+            .arg("--print").arg("after_move:filepath")
             .arg("-o").arg(&output_str)
             .arg(&url_clone)
             .output()
@@ -219,64 +216,21 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<RippedTrackRes
         return Err(format!("yt-dlp error: {}", last_err_line));
     }
 
-    // 5. Scan music_dir for any newly downloaded audio file
-    let new_file = std::fs::read_dir(&music_dir)
-        .map_err(|e| format!("Cannot read music dir: {}", e))?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy().to_lowercase();
-            name_str.ends_with(".mp3")
-                || name_str.ends_with(".m4a")
-                || name_str.ends_with(".webm")
-                || name_str.ends_with(".opus")
-                || name_str.ends_with(".ogg")
-                || name_str.ends_with(".wav")
-                || name_str.ends_with(".flac")
-                || name_str.ends_with(".aac")
-        })
-        .filter(|entry| {
-            entry
-                .metadata()
-                .ok()
-                .and_then(|m| m.modified().ok())
-                .map(|modified| modified >= before_time)
-                .unwrap_or(false)
-        })
-        .max_by_key(|entry| {
-            entry
-                .metadata()
-                .ok()
-                .and_then(|m| m.modified().ok())
-                .unwrap_or(SystemTime::UNIX_EPOCH)
+    // yt-dlp prints each finalized path, supporting single videos and playlists.
+    let printed_paths = String::from_utf8_lossy(&output_res.stdout);
+    let mut results = Vec::new();
+    for printed_path in printed_paths.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        let path = PathBuf::from(printed_path);
+        if !path.is_file() { continue; }
+        let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        results.push(RippedTrackResult {
+            success: true, file_path: path.to_string_lossy().to_string(), title,
+            artist: "Snake Nation".to_string(), album: "SNDeck".to_string(),
+            year: String::new(), duration: 0, cover_art: String::new(),
         });
-
-    match new_file {
-        Some(entry) => {
-            let path = entry.path();
-            let title = path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            let file_path_str = path.to_string_lossy().to_string();
-
-            Ok(RippedTrackResult {
-                success: true,
-                file_path: file_path_str,
-                title,
-                artist: "Snake Nation Ripper".to_string(),
-                album: "Nomad Deck".to_string(),
-                year: "2077".to_string(),
-                duration: 0,
-                cover_art: String::new(),
-            })
-        }
-        None => Err(format!(
-            "yt-dlp reported success but no new audio file was found in {:?}",
-            music_dir
-        )),
     }
+    if results.is_empty() { return Err("yt-dlp completed but did not report any downloaded audio files".to_string()); }
+    Ok(results)
 }
 
 fn main() {
@@ -289,5 +243,5 @@ fn main() {
             read_audio_files_in_dir
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Cyberdeck player");
+        .expect("error while running SNDeck player");
 }
