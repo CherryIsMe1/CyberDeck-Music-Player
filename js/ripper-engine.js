@@ -61,7 +61,7 @@ class CyberRipperEngine {
             const isTauri = typeof window.__TAURI__ !== 'undefined';
             if (isTauri) {
                 this.log('NATIVE YT-DLP ENGINE DETECTED - USING SYSTEM RIPPER...', 'system');
-                this.log('CHECKING YOUTUBE JAVASCRIPT RUNTIME...', 'info');
+                this.log('PREPARING NATIVE RIPPER...', 'info');
                 this.setProgress(10);
                 try {
                     const results = await window.__TAURI__.core.invoke('rip_audio_stream', { url: input, quality });
@@ -356,3 +356,4 @@ class CyberRipperEngine {
 }
 
 window.CyberRipperEngine = new CyberRipperEngine();
+

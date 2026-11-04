@@ -382,6 +382,20 @@ class CyberPlaylistManager {
         }
     }
 
+    removeTracksFromPlaylist(playlistId, trackIds) {
+        const pl = this.playlists[playlistId];
+        if (!pl || pl.system || !Array.isArray(trackIds) || trackIds.length === 0) return 0;
+        const removeIds = new Set(trackIds);
+        const previousCount = pl.trackIds.length;
+        pl.trackIds = pl.trackIds.filter(id => !removeIds.has(id));
+        const removedCount = previousCount - pl.trackIds.length;
+        if (removedCount > 0) {
+            this.saveToStorage();
+            this.notifyChange();
+        }
+        return removedCount;
+    }
+
     toggleFavorite(trackId) {
         const favs = this.playlists.favorites.trackIds;
         const idx = favs.indexOf(trackId);
@@ -569,3 +583,4 @@ class CyberPlaylistManager {
 }
 
 window.PlaylistManager = new CyberPlaylistManager();
+

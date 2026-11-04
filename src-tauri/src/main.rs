@@ -3,7 +3,19 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::time::SystemTime;
+use tauri::Emitter;
+
+static DENO_RUNTIME_PATH: OnceLock<PathBuf> = OnceLock::new();
+static YTDLP_EXECUTABLE_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+fn emit_ripper_status(app: &tauri::AppHandle, message: &str, kind: &str, progress: u8) {
+    let _ = app.emit(
+        "sndeck-ripper-status",
+        serde_json::json!({ "message": message, "kind": kind, "progress": progress }),
+    );
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RippedTrackResult {
@@ -38,6 +50,10 @@ fn deno_version_supported(executable: &std::path::Path) -> bool {
 /// Finds or downloads a supported JavaScript runtime for YouTube extraction.
 #[cfg(target_os = "windows")]
 async fn get_or_download_deno() -> Result<PathBuf, String> {
+    if let Some(path) = DENO_RUNTIME_PATH.get() {
+        return Ok(path.clone());
+    }
+
     let local_dir = dirs::data_local_dir()
         .ok_or_else(|| "Cannot determine local data directory".to_string())?
         .join("SNDeck")
@@ -47,11 +63,14 @@ async fn get_or_download_deno() -> Result<PathBuf, String> {
         .await
         .unwrap_or(false);
     if in_path {
-        return Ok(PathBuf::from("deno"));
+        let path = PathBuf::from("deno");
+        let _ = DENO_RUNTIME_PATH.set(path.clone());
+        return Ok(path);
     }
 
     let deno_path = local_dir.join("deno.exe");
     if deno_version_supported(&deno_path) {
+        let _ = DENO_RUNTIME_PATH.set(deno_path.clone());
         return Ok(deno_path);
     }
 
@@ -97,16 +116,23 @@ async fn get_or_download_deno() -> Result<PathBuf, String> {
     if !extract_status.success() || !deno_path.exists() {
         return Err("Deno downloaded but could not be installed. Install Deno 2.3+ manually and retry.".to_string());
     }
+    let _ = DENO_RUNTIME_PATH.set(deno_path.clone());
     Ok(deno_path)
 }
 
 #[cfg(not(target_os = "windows"))]
 async fn get_or_download_deno() -> Result<PathBuf, String> {
+    if let Some(path) = DENO_RUNTIME_PATH.get() {
+        return Ok(path.clone());
+    }
+
     let in_path = tokio::task::spawn_blocking(|| deno_version_supported(std::path::Path::new("deno")))
         .await
         .unwrap_or(false);
     if in_path {
-        Ok(PathBuf::from("deno"))
+        let path = PathBuf::from("deno");
+        let _ = DENO_RUNTIME_PATH.set(path.clone());
+        Ok(path)
     } else {
         Err("Install Deno 2.3+ to enable full YouTube support, then retry.".to_string())
     }
@@ -114,6 +140,10 @@ async fn get_or_download_deno() -> Result<PathBuf, String> {
 
 /// Finds or downloads yt-dlp, returning the path to the executable.
 async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
+    if let Some(path) = YTDLP_EXECUTABLE_PATH.get() {
+        return Ok(path.clone());
+    }
+
     // 1. Check if yt-dlp is on PATH
     let in_path = tokio::task::spawn_blocking(|| {
         std::process::Command::new("yt-dlp")
@@ -126,7 +156,9 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     .unwrap_or(false);
 
     if in_path {
-        return Ok(PathBuf::from("yt-dlp"));
+        let path = PathBuf::from("yt-dlp");
+        let _ = YTDLP_EXECUTABLE_PATH.set(path.clone());
+        return Ok(path);
     }
 
     // 2. Check app-local dir
@@ -148,6 +180,7 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     .await
     .unwrap_or(false);
     if local_works {
+        let _ = YTDLP_EXECUTABLE_PATH.set(ytdlp_path.clone());
         return Ok(ytdlp_path);
     }
 
@@ -186,6 +219,7 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
         std::fs::set_permissions(&ytdlp_path, perms).map_err(|e| e.to_string())?;
     }
 
+    let _ = YTDLP_EXECUTABLE_PATH.set(ytdlp_path.clone());
     Ok(ytdlp_path)
 }
 
@@ -224,8 +258,9 @@ async fn read_audio_files_in_dir(dir_path: String) -> Result<Vec<String>, String
 
 /// Native command invoked from frontend: window.__TAURI__.core.invoke('rip_audio_stream', { url, quality })
 #[tauri::command]
-async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrackResult>, String> {
+async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -> Result<Vec<RippedTrackResult>, String> {
     println!("[SNDeck Native Ripper] Target URL: {}, Quality: {}", url, quality);
+    emit_ripper_status(&app, "Checking audio tools...", "info", 8);
 
     // 1. Check for ffmpeg in PATH or in local SNDeck bin
     let local_bin = dirs::data_local_dir().map(|d| d.join("SNDeck").join("bin"));
@@ -255,10 +290,19 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
     // YouTube now requires an external JavaScript runtime for full extraction.
     let normalized_url = url.to_ascii_lowercase();
     let youtube_url = normalized_url.contains("youtube.com") || normalized_url.contains("youtu.be");
-    let js_runtime = if youtube_url { Some(get_or_download_deno().await?) } else { None };
+    let js_runtime = if youtube_url {
+        emit_ripper_status(&app, "Checking YouTube JavaScript runtime...", "info", 15);
+        let runtime = get_or_download_deno().await?;
+        emit_ripper_status(&app, "JavaScript runtime ready.", "success", 25);
+        Some(runtime)
+    } else {
+        None
+    };
 
     // 2. Resolve yt-dlp executable
+    emit_ripper_status(&app, "Preparing yt-dlp...", "info", 30);
     let ytdlp_path = get_or_download_ytdlp().await?;
+    emit_ripper_status(&app, "yt-dlp is resolving and downloading now. Large playlists can take several minutes.", "system", 40);
 
     // 3. Resolve music directory
     let mut music_dir = dirs::audio_dir().unwrap_or_else(|| {
@@ -335,6 +379,8 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
         return Err(format!("yt-dlp failed: {}", if details.is_empty() { "process returned a non-zero exit status" } else { &details }));
     }
 
+    emit_ripper_status(&app, "yt-dlp finished. Adding downloaded tracks to the library...", "info", 90);
+
     // Each rip uses a fresh output folder. This reliably collects every item,
     // including a single track and playlist entries even when yt-dlp skips its
     // --print output or the same title/ID already exists in the library folder.
@@ -398,3 +444,4 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running SNDeck player");
 }
+

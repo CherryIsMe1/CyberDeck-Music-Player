@@ -250,6 +250,15 @@ body::before {
     color: var(--omi-blue);
 }
 
+@media (min-width: 1281px) {
+    .header-telemetry {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+}
+
 .telemetry-item {
     display: flex;
     align-items: center;
@@ -861,6 +870,11 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
 .bulk-selection-bar[hidden] { display: none; }
 .bulk-selection-bar span { margin-right: auto; }
 .bulk-selection-bar button { padding: 4px 8px; font-size: 10px; }
+.bulk-selection-bar button[hidden] { display: none; }
+.btn-remove-selected, .btn-track-remove { color: var(--omi-pink); border-color: rgba(var(--omi-pink-rgb), .35); }
+.btn-remove-selected:hover, .btn-track-remove:hover { color: #FFF; border-color: var(--omi-pink); background: rgba(var(--omi-pink-rgb), .12); }
+.btn-track-remove { width: 24px; height: 23px; padding: 3px; }
+.btn-track-remove svg { width: 12px; height: 12px; }
 .track-row.multi-selected { background: rgba(var(--omi-purple-rgb), 0.16); box-shadow: inset 3px 0 var(--omi-purple); }
 
 .track-row.active {
@@ -1583,3 +1597,4 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     box-shadow: 0 0 10px var(--omi-pink);
     transition: width 0.3s ease;
 }
+

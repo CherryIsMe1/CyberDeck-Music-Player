@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkSelectionBar: document.getElementById('bulkSelectionBar'),
         selectedTrackCount: document.getElementById('selectedTrackCount'),
         btnMoveSelected: document.getElementById('btnMoveSelected'),
+        btnRemoveSelected: document.getElementById('btnRemoveSelected'),
         btnClearSelection: document.getElementById('btnClearSelection'),
 
         // EQ
@@ -1013,6 +1014,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.ripperProgressFill.style.width = `${percent}%`;
             }
         };
+
+        const nativeEvents = window.__TAURI__ && window.__TAURI__.event;
+        if (nativeEvents && typeof nativeEvents.listen === 'function') {
+            nativeEvents.listen('sndeck-ripper-status', event => {
+                const status = event && event.payload;
+                if (!status || typeof status.message !== 'string') return;
+                window.CyberRipperEngine.log(status.message, status.kind || 'info');
+                if (Number.isFinite(status.progress)) {
+                    window.CyberRipperEngine.setProgress(status.progress);
+                }
+            }).catch(error => console.warn('Could not subscribe to native ripper updates:', error));
+        }
     }
 
     if (elements.btnExecuteRip) {
@@ -1024,6 +1037,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             window.CyberSound.playSandevistan();
+            if (elements.ripperConsoleLog) elements.ripperConsoleLog.replaceChildren();
+            if (elements.ripperProgressFill) elements.ripperProgressFill.style.width = '0%';
             elements.btnExecuteRip.disabled = true;
             elements.btnExecuteRip.textContent = 'RIPPING STREAM...';
             if (elements.ripperStatusDot) elements.ripperStatusDot.style.background = 'var(--omi-pink)';
@@ -1078,11 +1093,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     function renderTracks() {
         const activeTracks = window.PlaylistManager.getActiveTracks();
+        const activePlaylist = window.PlaylistManager.playlists[window.PlaylistManager.activePlaylistId];
+        const canRemoveFromActivePlaylist = !!(activePlaylist && !activePlaylist.system);
         const visibleTrackIds = new Set(activeTracks.map(track => track.id));
         Array.from(selectedTrackIds).forEach(id => { if (!visibleTrackIds.has(id)) selectedTrackIds.delete(id); });
         elements.bulkSelectionBar.hidden = selectedTrackIds.size === 0;
         elements.selectedTrackCount.textContent = `${selectedTrackIds.size} SELECTED`;
         elements.btnMoveSelected.disabled = selectedTrackIds.size === 0;
+        elements.btnRemoveSelected.hidden = !canRemoveFromActivePlaylist;
+        elements.btnRemoveSelected.disabled = selectedTrackIds.size === 0;
         elements.trackScrollList.innerHTML = '';
         elements.trackCountBadge.textContent = `${activeTracks.length} TRACKS`;
 
@@ -1166,7 +1185,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add to Playlist Button
             const addPlBtn = document.createElement('button');
             addPlBtn.className = 'btn-track-action';
-            const activePlaylist = window.PlaylistManager.playlists[window.PlaylistManager.activePlaylistId];
             const canMoveTrack = activePlaylist && !activePlaylist.system && activePlaylist.trackIds.includes(track.id);
             addPlBtn.innerHTML = canMoveTrack ? `<span>→</span> <span>PL</span>` : `<span>+</span> <span>PL</span>`;
             addPlBtn.setAttribute('title', canMoveTrack ? 'Move to another playlist' : 'Add to Playlist');
@@ -1175,11 +1193,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 promptAddToPlaylist(track);
             });
 
+            let removeBtn = null;
+            if (canMoveTrack) {
+                removeBtn = document.createElement('button');
+                removeBtn.className = 'btn-track-action btn-track-remove';
+                removeBtn.type = 'button';
+                removeBtn.title = `Remove ${track.title} from ${activePlaylist.name}`;
+                removeBtn.setAttribute('aria-label', removeBtn.title);
+                removeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>';
+                removeBtn.addEventListener('click', event => {
+                    event.stopPropagation();
+                    window.CyberSound.playClick();
+                    window.PlaylistManager.removeTracksFromPlaylist(activePlaylist.id, [track.id]);
+                    selectedTrackIds.delete(track.id);
+                    renderPlaylists();
+                    renderTracks();
+                });
+            }
+
             row.appendChild(numEl);
             row.appendChild(detailsEl);
             row.appendChild(durEl);
             row.appendChild(favBtn);
             row.appendChild(addPlBtn);
+            if (removeBtn) row.appendChild(removeBtn);
 
             row.addEventListener('click', (e) => {
                 if (e.ctrlKey || e.metaKey) {
@@ -1240,6 +1277,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     elements.btnMoveSelected.addEventListener('click', moveSelectedTracksToPlaylist);
+    elements.btnRemoveSelected.addEventListener('click', () => {
+        const manager = window.PlaylistManager;
+        const source = manager.playlists[manager.activePlaylistId];
+        if (!source || source.system || selectedTrackIds.size === 0) return;
+        const removedCount = manager.removeTracksFromPlaylist(source.id, Array.from(selectedTrackIds));
+        selectedTrackIds.clear();
+        if (removedCount > 0) window.CyberSound.playSuccess();
+        renderPlaylists();
+        renderTracks();
+    });
     elements.btnCancelPlaylistPicker.addEventListener('click', () => elements.playlistPickerModal.classList.remove('open'));
     elements.playlistPickerModal.addEventListener('click', (e) => {
         if (e.target === elements.playlistPickerModal) elements.playlistPickerModal.classList.remove('open');
@@ -1354,3 +1401,4 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPlaylists();
     renderTracks();
 });
+

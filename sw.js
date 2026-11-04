@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sndeck-v10';
+const CACHE_NAME = 'sndeck-v14';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -44,3 +44,4 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
