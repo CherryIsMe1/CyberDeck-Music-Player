@@ -1,7 +1,7 @@
 /**
  * Cyberpunk Edgerunners 2 - OMI Visualizer
  * Modes:
- * 1. SNAKE COIL (Symmetrical 360-degree radial audio spine with full logarithmic spectrum)
+ * 1. BASIC (record only; the record spins during playback)
  * 2. GORILLA BARS (Full-width 48-bar logarithmic frequency spectrum with peak hold)
  * 3. NOMAD LASER (Laser oscilloscope with hot pink chromatic split)
  * 4. BADLANDS 3D (Synthwave wireframe desert with mountains, sliced neon sun & cyber highway)
@@ -10,7 +10,7 @@ class CyberVisualizer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.mode = 'gorilla-bars'; // 'snake-coil' | 'gorilla-bars' | 'nomad-laser' | 'badlands-3d'
+        this.mode = 'gorilla-bars'; // 'basic' | 'ring-wave' | 'gorilla-bars' | 'nomad-laser' | 'badlands-3d'
         this.isRunning = false;
         this.peakLevels = [];
         this.peakDecay = 1.4;
@@ -138,17 +138,18 @@ class CyberVisualizer {
         const freqData = window.AudioEngine.getFrequencyData();
         const timeData = window.AudioEngine.getTimeDomainData();
 
-        // Background with motion trail fade
-        this.ctx.fillStyle = 'rgba(7, 9, 14, 0.32)';
+        const cleanMode = this.mode === 'basic' || this.mode === 'ring-wave';
+        // Clean radial modes use a solid clear so they leave no glow trails.
+        this.ctx.fillStyle = cleanMode ? 'rgba(7, 9, 14, 1)' : 'rgba(7, 9, 14, 0.32)';
         this.ctx.fillRect(0, 0, w, h);
 
-        // Cyber Grid Lines (subtle background HUD)
-        this.drawBackgroundHUD(w, h);
+        if (!cleanMode) this.drawBackgroundHUD(w, h);
 
         switch (this.mode) {
-            case 'snake-coil':
-            case 'sandevistan':
-                this.drawSnakeCoil(freqData, w, h);
+            case 'basic':
+                break;
+            case 'ring-wave':
+                this.drawRingWave(timeData, w, h);
                 break;
             case 'gorilla-bars':
             case 'cyber-bars':
@@ -201,83 +202,34 @@ class CyberVisualizer {
         this.ctx.restore();
     }
 
-    /**
-     * Mode 1: Snake Coil (Symmetrical 360-degree Radial Visualizer)
-     * Mirrors frequencies symmetrically across left & right halves,
-     * fully surrounding Omi's portrait with pulsating green & hot pink spines!
-     */
-    drawSnakeCoil(freqData, w, h) {
+    /** Mode: a smooth circular waveform around the record. */
+    drawRingWave(timeData, w, h) {
         const cx = w / 2;
         const cy = h / 2;
-        const baseRadius = Math.min(w, h) * 0.23;
-        const halfPoints = 36; // 36 on left, 36 on right = 72 total
-        const step = Math.PI / halfPoints;
+        const minDimension = Math.min(w, h);
+        const baseRadius = minDimension * 0.34;
+        const amplitude = minDimension * 0.12;
+        const pointCount = 256;
 
-        this.rotationAngle += 0.005;
-
-        // Calculate bass kick energy for radial pulse
-        let bassEnergy = 0;
-        for (let i = 1; i <= 6; i++) bassEnergy += freqData[i] || 0;
-        bassEnergy = bassEnergy / 6;
-        const pulse = (bassEnergy / 255) * 22;
-
-        this.ctx.save();
-        this.ctx.translate(cx, cy);
-        this.ctx.rotate(this.rotationAngle);
-
-        // Outer HUD dashed reticle ring
-        this.ctx.strokeStyle = 'rgba(255, 26, 117, 0.4)';
-        this.ctx.setLineDash([4, 8]);
-        this.ctx.lineWidth = 1.5;
+        const gradient = this.ctx.createLinearGradient(cx - baseRadius, cy, cx + baseRadius, cy);
+        gradient.addColorStop(0, this.colors.pink);
+        gradient.addColorStop(0.5, this.colors.green);
+        gradient.addColorStop(1, this.colors.pink);
+        this.ctx.strokeStyle = gradient;
+        this.ctx.lineWidth = 2;
         this.ctx.beginPath();
-        this.ctx.arc(0, 0, baseRadius + pulse * 0.5, 0, Math.PI * 2);
-        this.ctx.stroke();
-        this.ctx.setLineDash([]);
-
-        // Draw Symmetrical Spokes: Left & Right Halves
-        // k = 0 is bass (top/bottom), k = 35 is treble
-        for (let k = 0; k < halfPoints; k++) {
-            const rawVal = this.getLogFrequency(k, halfPoints, freqData);
-            const normVal = Math.min(1.0, rawVal / 255);
-            // Power curve so quiet moments are subtle and peaks stay contained
-            const dynamicVal = Math.pow(normVal, 0.78);
-            const barLen = 7 + dynamicVal * (baseRadius * 0.48);
-
-            const isAccent = k % 3 === 0;
-            const strokeColor = isAccent ? this.colors.pink : (k % 2 === 0 ? this.colors.green : this.colors.purple);
-
-            this.ctx.strokeStyle = strokeColor;
-            this.ctx.shadowColor = isAccent ? this.colors.pink : this.colors.green;
-            this.ctx.shadowBlur = isAccent ? 8 : 4;
-            this.ctx.lineWidth = isAccent ? 2.2 : 1.5;
-
-            const r1 = baseRadius + pulse;
-            const r2 = r1 + barLen;
-
-            // 1. Right Arc (angles from -PI/2 downwards to +PI/2)
-            const angleRight = -Math.PI / 2 + k * step;
-            this.ctx.beginPath();
-            this.ctx.moveTo(Math.cos(angleRight) * r1, Math.sin(angleRight) * r1);
-            this.ctx.lineTo(Math.cos(angleRight) * r2, Math.sin(angleRight) * r2);
-            this.ctx.stroke();
-
-            // 2. Left Arc (mirrored angles from -PI/2 downwards to -3PI/2)
-            const angleLeft = -Math.PI / 2 - k * step;
-            this.ctx.beginPath();
-            this.ctx.moveTo(Math.cos(angleLeft) * r1, Math.sin(angleLeft) * r1);
-            this.ctx.lineTo(Math.cos(angleLeft) * r2, Math.sin(angleLeft) * r2);
-            this.ctx.stroke();
+        for (let i = 0; i <= pointCount; i++) {
+            const angle = (i / pointCount) * Math.PI * 2 - Math.PI / 2;
+            const sampleIndex = Math.floor((i % pointCount) / pointCount * timeData.length);
+            const rawSample = ((timeData[sampleIndex] ?? 128) - 128) / 128;
+            const sample = Math.max(-1, Math.min(1, rawSample * 3));
+            const radius = baseRadius + sample * amplitude;
+            const x = cx + Math.cos(angle) * radius;
+            const y = cy + Math.sin(angle) * radius;
+            if (i === 0) this.ctx.moveTo(x, y);
+            else this.ctx.lineTo(x, y);
         }
-
-        // Inner glowing core
-        this.ctx.shadowBlur = 18;
-        this.ctx.shadowColor = this.colors.pink;
-        this.ctx.fillStyle = 'rgba(255, 26, 117, 0.1)';
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, baseRadius * 0.6 + pulse * 0.8, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        this.ctx.restore();
+        this.ctx.stroke();
     }
 
     /**

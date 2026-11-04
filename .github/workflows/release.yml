@@ -1,4 +1,4 @@
-name: "Release Cyberdeck Player"
+name: "SNDeck Windows Release"
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'CYBERDECK // SNAKE NATION ${{ github.ref_name }}'
-          releaseBody: 'Official Cyberdeck Snake Nation release for Windows 11.'
+          releaseName: 'SNDeck ${{ github.ref_name }}'
+          releaseBody: 'Windows installers for SNDeck.'
           releaseDraft: false
           prerelease: false
