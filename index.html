@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNDECK // SNAKE NATION AUDIO</title>
+    <title>SNDeck</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF1A75">
     <link rel="stylesheet" href="css/cyberpunk-theme.css">
@@ -208,6 +208,7 @@
             <div class="bulk-selection-bar" id="bulkSelectionBar" hidden>
                 <span id="selectedTrackCount">0 SELECTED</span>
                 <button class="btn-cyber-icon" id="btnMoveSelected" type="button">MOVE TO...</button>
+                <button class="btn-cyber-icon btn-remove-selected" id="btnRemoveSelected" type="button" hidden>REMOVE</button>
                 <button class="btn-cyber-icon" id="btnClearSelection" type="button" title="Clear selection">CLEAR</button>
             </div>
 
@@ -421,6 +422,11 @@
     <script src="js/app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (window.__sndeckSwReloading) return;
+                window.__sndeckSwReloading = true;
+                window.location.reload();
+            });
             navigator.serviceWorker.register('./sw.js').catch(() => {});
         }
     </script>
