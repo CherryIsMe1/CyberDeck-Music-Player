@@ -52,8 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnChoosePortrait: document.getElementById('btnChoosePortrait'),
         btnResetPortrait: document.getElementById('btnResetPortrait'),
         portraitFileInput: document.getElementById('portraitFileInput'),
-        headerClanStatus: document.getElementById('headerClanStatus'),
-        headerCoverStatus: document.getElementById('headerCoverStatus'),
         btnToggleRetro: document.getElementById('btnToggleRetro'),
         btnToggleSound: document.getElementById('btnToggleSound'),
 
@@ -204,8 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.dataset.theme = activeTheme;
     applyCustomThemeColors(themes[activeTheme]);
     visualizer.setTheme();
-    elements.headerClanStatus.textContent = themes[activeTheme].clan;
-    elements.headerClanStatus.style.color = `var(${themes[activeTheme].clanColor})`;
     const retroEnabled = localStorage.getItem('sndeck_retro_effect') !== 'off';
     document.getElementById('scanlines').classList.toggle('disabled', !retroEnabled);
     elements.btnToggleRetro.textContent = `RETRO: ${retroEnabled ? 'ON' : 'OFF'}`;
@@ -220,10 +216,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (coverMode === 'portrait') {
             elements.holoCoverArt.src = customPortraits[activeTheme] || themes[activeTheme].portrait;
             elements.btnToggleCover.textContent = `DISC: ${themes[activeTheme].label}`;
-            if (elements.headerCoverStatus) {
-                elements.headerCoverStatus.textContent = `${themes[activeTheme].label} PORTRAIT`;
-                elements.headerCoverStatus.style.color = 'var(--omi-pink)';
-            }
         } else {
             if (track && track.coverArt) {
                 elements.holoCoverArt.src = track.coverArt;
@@ -231,10 +223,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.holoCoverArt.src = 'assets/cyber_vinyl.svg';
             }
             elements.btnToggleCover.textContent = 'DISC: ALBUM';
-            if (elements.headerCoverStatus) {
-                elements.headerCoverStatus.textContent = 'ALBUM COVER';
-                elements.headerCoverStatus.style.color = 'var(--omi-green)';
-            }
         }
     }
 
@@ -742,8 +730,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.dataset.theme = activeTheme;
         applyCustomThemeColors(themes[activeTheme]);
         visualizer.setTheme();
-        elements.headerClanStatus.textContent = themes[activeTheme].clan;
-        elements.headerClanStatus.style.color = `var(${themes[activeTheme].clanColor})`;
         elements.btnDeleteTheme.hidden = !themes[activeTheme].custom;
         const themeColor = document.querySelector('meta[name="theme-color"]');
         if (themeColor) themeColor.content = getComputedStyle(document.body).getPropertyValue('--cyber-dark-bg').trim();
