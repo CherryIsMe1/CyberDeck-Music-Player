@@ -258,7 +258,8 @@ body::before {
     z-index: 5;
     flex: 1;
     display: grid;
-    grid-template-columns: 280px 1fr 390px;
+    grid-template-columns: 280px minmax(0, 1fr) 390px;
+    grid-template-rows: minmax(0, 1fr);
     gap: 12px;
     padding: 12px 16px;
     min-height: 0;
@@ -431,10 +432,13 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-width: 0;
+    min-height: 0;
 }
 
 .visualizer-card {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     position: relative;
     background: #06070B;
     border: 1px solid var(--cyber-panel-border);
@@ -483,10 +487,10 @@ body::before {
 }
 
 .canvas-container {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     position: relative;
     width: 100%;
-    min-height: 220px;
 }
 
 #cyberVisualizerCanvas {
@@ -541,6 +545,8 @@ body::before {
 
 /* Now Playing Information Strip */
 .now-playing-strip {
+    flex: 0 0 auto;
+    min-height: 76px;
     background: rgba(13, 16, 26, 0.95);
     border-top: 1px solid var(--cyber-panel-border);
     padding: 12px 18px;
@@ -582,6 +588,8 @@ body::before {
 
 /* Equalizer Panel */
 .eq-panel {
+    flex: 0 0 auto;
+    min-height: 96px;
     background: var(--cyber-panel);
     border: 1px solid var(--cyber-panel-border);
     padding: 10px 14px;
