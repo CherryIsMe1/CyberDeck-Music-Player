@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedTrackCount: document.getElementById('selectedTrackCount'),
         btnMoveSelected: document.getElementById('btnMoveSelected'),
         btnRemoveSelected: document.getElementById('btnRemoveSelected'),
+        btnDeleteSelected: document.getElementById('btnDeleteSelected'),
         btnClearSelection: document.getElementById('btnClearSelection'),
 
         // EQ
@@ -110,7 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let isSeeking = false;
+    let seekPointerId = null;
     let isMuted = false;
+    const spinBoostSources = new Set();
+    let spinBoostStartedAt = 0;
+    let spinBoostFrame = null;
+    let pKeyDownAt = null;
+    let recordPointerDownAt = null;
+    let suppressTurntableClick = false;
     const savedVolume = localStorage.getItem('sndeck_volume');
     const parsedVolume = savedVolume === null ? 0.8 : parseFloat(savedVolume);
     const initialVolume = Number.isFinite(parsedVolume) ? Math.max(0, Math.min(1, parsedVolume)) : 0.8;
@@ -262,14 +270,53 @@ document.addEventListener('DOMContentLoaded', () => {
         favOutline: '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>'
     };
 
+    function updateSeekDisplay(currentTime, duration) {
+        const percent = duration > 0 ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0;
+        elements.seekBarProgress.style.width = `${percent}%`;
+        elements.seekBarWrapper.setAttribute('aria-valuenow', String(Math.round(percent)));
+        elements.seekBarWrapper.setAttribute('aria-valuetext', `${formatTime(currentTime)} of ${formatTime(duration)}`);
+        elements.currentTimeDisplay.textContent = formatTime(currentTime);
+    }
+
+    function setTurntableSpinRate(rate) {
+        const spinAnimation = elements.holoTurntable.getAnimations()
+            .find(animation => animation.animationName === 'rotate-turntable');
+        if (spinAnimation) spinAnimation.playbackRate = rate;
+    }
+
+    function animateSpinBoost(now) {
+        if (spinBoostSources.size === 0) return;
+        const ramp = Math.min(1, (now - spinBoostStartedAt) / 2000);
+        setTurntableSpinRate(1 + ramp);
+        if (ramp < 1) spinBoostFrame = requestAnimationFrame(animateSpinBoost);
+    }
+
+    function startSpinBoost(source) {
+        if (spinBoostSources.has(source)) return;
+        const wasIdle = spinBoostSources.size === 0;
+        spinBoostSources.add(source);
+        if (wasIdle) {
+            spinBoostStartedAt = performance.now();
+            elements.holoTurntable.classList.add('spinning');
+            spinBoostFrame = requestAnimationFrame(animateSpinBoost);
+        }
+    }
+
+    function stopSpinBoost(source) {
+        spinBoostSources.delete(source);
+        if (spinBoostSources.size > 0) return;
+        if (spinBoostFrame !== null) cancelAnimationFrame(spinBoostFrame);
+        spinBoostFrame = null;
+        setTurntableSpinRate(1);
+        if (window.AudioEngine.audio.paused) elements.holoTurntable.classList.remove('spinning');
+    }
+
     // =========================================================================
     // AUDIO ENGINE CALLBACKS
     // =========================================================================
     window.AudioEngine.onTimeUpdate = (currentTime, duration) => {
         if (!isSeeking) {
-            const percent = duration > 0 ? (currentTime / duration) * 100 : 0;
-            elements.seekBarProgress.style.width = `${percent}%`;
-            elements.currentTimeDisplay.textContent = formatTime(currentTime);
+            updateSeekDisplay(currentTime, duration);
         }
     };
 
@@ -292,12 +339,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isPlaying) {
             elements.playMasterIcon.innerHTML = ICONS.pause;
             elements.btnPlayMaster.setAttribute('title', 'Pause (Space)');
-            elements.holoTurntable.classList.add('spinning');
         } else {
             elements.playMasterIcon.innerHTML = ICONS.play;
             elements.btnPlayMaster.setAttribute('title', 'Play (Space)');
-            elements.holoTurntable.classList.remove('spinning');
         }
+        elements.holoTurntable.classList.toggle('spinning', isPlaying || spinBoostSources.size > 0);
     }
 
     async function playTrack(track) {
@@ -392,16 +438,57 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.btnRepeat.setAttribute('title', `Loop: ${mode.toUpperCase()}`);
     });
 
-    // Seek bar
-    elements.seekBarWrapper.addEventListener('click', (e) => {
+    // Seek bar: click, drag, touch, or keyboard.
+    function seekFromClientX(clientX) {
         const rect = elements.seekBarWrapper.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
         const duration = window.AudioEngine.audio.duration;
-        if (!isNaN(duration) && duration > 0) {
-            const targetTime = pos * duration;
-            window.AudioEngine.seek(targetTime);
-            elements.seekBarProgress.style.width = `${pos * 100}%`;
+        if (!Number.isFinite(duration) || duration <= 0 || rect.width <= 0) return false;
+        const position = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const targetTime = position * duration;
+        window.AudioEngine.seek(targetTime);
+        updateSeekDisplay(targetTime, duration);
+        return true;
+    }
+
+    elements.seekBarWrapper.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        if (!seekFromClientX(event.clientX)) return;
+        event.preventDefault();
+        isSeeking = true;
+        seekPointerId = event.pointerId;
+        elements.seekBarWrapper.classList.add('seeking');
+        elements.seekBarWrapper.setPointerCapture(event.pointerId);
+    });
+    elements.seekBarWrapper.addEventListener('pointermove', event => {
+        if (isSeeking && event.pointerId === seekPointerId) seekFromClientX(event.clientX);
+    });
+    const finishSeeking = event => {
+        if (!isSeeking || event.pointerId !== seekPointerId) return;
+        seekFromClientX(event.clientX);
+        isSeeking = false;
+        seekPointerId = null;
+        elements.seekBarWrapper.classList.remove('seeking');
+        if (elements.seekBarWrapper.hasPointerCapture(event.pointerId)) {
+            elements.seekBarWrapper.releasePointerCapture(event.pointerId);
         }
+    };
+    elements.seekBarWrapper.addEventListener('pointerup', finishSeeking);
+    elements.seekBarWrapper.addEventListener('pointercancel', finishSeeking);
+    elements.seekBarWrapper.addEventListener('keydown', event => {
+        const duration = window.AudioEngine.audio.duration;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+        const currentTime = window.AudioEngine.audio.currentTime || 0;
+        let nextTime = null;
+        if (event.key === 'ArrowRight') nextTime = currentTime + 5;
+        if (event.key === 'ArrowLeft') nextTime = currentTime - 5;
+        if (event.key === 'Home') nextTime = 0;
+        if (event.key === 'End') nextTime = duration;
+        if (nextTime === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        nextTime = Math.max(0, Math.min(duration, nextTime));
+        window.AudioEngine.seek(nextTime);
+        updateSeekDisplay(nextTime, duration);
     });
 
     // Volume
@@ -492,7 +579,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     elements.btnToggleCover.addEventListener('click', cycleCoverMode);
-    elements.holoTurntable.addEventListener('click', cycleCoverMode);
+    elements.holoTurntable.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        recordPointerDownAt = performance.now();
+        startSpinBoost('record-pointer');
+        elements.holoTurntable.setPointerCapture(event.pointerId);
+    });
+    const stopRecordPointerBoost = event => {
+        if (recordPointerDownAt === null) return;
+        const heldFor = performance.now() - recordPointerDownAt;
+        recordPointerDownAt = null;
+        stopSpinBoost('record-pointer');
+        if (event.type === 'pointerup' && heldFor >= 250) suppressTurntableClick = true;
+    };
+    elements.holoTurntable.addEventListener('pointerup', stopRecordPointerBoost);
+    elements.holoTurntable.addEventListener('pointercancel', stopRecordPointerBoost);
+    elements.holoTurntable.addEventListener('click', event => {
+        if (suppressTurntableClick) {
+            suppressTurntableClick = false;
+            event.preventDefault();
+            return;
+        }
+        cycleCoverMode();
+    });
+    window.addEventListener('blur', () => {
+        stopSpinBoost('record-pointer');
+        recordPointerDownAt = null;
+        if (pKeyDownAt !== null) {
+            stopSpinBoost('keyboard-p');
+            pKeyDownAt = null;
+        }
+    });
     elements.btnCreateTheme.addEventListener('click', () => {
         elements.customThemeForm.reset();
         elements.customThemeName.value = '';
@@ -1098,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeTracks = window.PlaylistManager.getActiveTracks();
         const activePlaylist = window.PlaylistManager.playlists[window.PlaylistManager.activePlaylistId];
         const canRemoveFromActivePlaylist = !!(activePlaylist && !activePlaylist.system);
+        const canDeleteFromLibrary = !!(activePlaylist && activePlaylist.id === 'all');
         const visibleTrackIds = new Set(activeTracks.map(track => track.id));
         Array.from(selectedTrackIds).forEach(id => { if (!visibleTrackIds.has(id)) selectedTrackIds.delete(id); });
         elements.bulkSelectionBar.hidden = selectedTrackIds.size === 0;
@@ -1105,6 +1223,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.btnMoveSelected.disabled = selectedTrackIds.size === 0;
         elements.btnRemoveSelected.hidden = !canRemoveFromActivePlaylist;
         elements.btnRemoveSelected.disabled = selectedTrackIds.size === 0;
+        elements.btnDeleteSelected.hidden = !canDeleteFromLibrary;
+        elements.btnDeleteSelected.disabled = selectedTrackIds.size === 0;
         elements.trackScrollList.innerHTML = '';
         elements.trackCountBadge.textContent = `${activeTracks.length} TRACKS`;
 
@@ -1214,12 +1334,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
+            let deleteBtn = null;
+            if (canDeleteFromLibrary) {
+                deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-track-action btn-track-delete';
+                deleteBtn.type = 'button';
+                deleteBtn.title = `Remove ${track.title} from the SNDeck library`;
+                deleteBtn.setAttribute('aria-label', deleteBtn.title);
+                deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>';
+                deleteBtn.addEventListener('click', event => {
+                    event.stopPropagation();
+                    deleteTracksFromLibrary([track.id]);
+                });
+            }
+
             row.appendChild(numEl);
             row.appendChild(detailsEl);
             row.appendChild(durEl);
             row.appendChild(favBtn);
             row.appendChild(addPlBtn);
             if (removeBtn) row.appendChild(removeBtn);
+            if (deleteBtn) row.appendChild(deleteBtn);
 
             row.addEventListener('click', (e) => {
                 if (e.ctrlKey || e.metaKey) {
@@ -1279,6 +1414,39 @@ document.addEventListener('DOMContentLoaded', () => {
         openPlaylistPicker(Array.from(selectedTrackIds), !!(source && !source.system), 'MOVE TRACKS // SNDECK');
     }
 
+    function deleteTracksFromLibrary(trackIds) {
+        const manager = window.PlaylistManager;
+        const uniqueIds = Array.from(new Set(trackIds)).filter(id => manager.tracks.has(id));
+        if (uniqueIds.length === 0) return;
+        const count = uniqueIds.length;
+        const label = count === 1 ? 'this track' : `${count} tracks`;
+        if (!confirm(`Remove ${label} from the SNDeck library? The audio file${count === 1 ? '' : 's'} will stay on your computer.`)) return;
+
+        const removesCurrentTrack = uniqueIds.includes(manager.currentTrackId);
+        if (removesCurrentTrack) {
+            window.AudioEngine.pause();
+            window.AudioEngine.audio.removeAttribute('src');
+            window.AudioEngine.audio.load();
+        }
+
+        const removedCount = manager.deleteTracksFromLibrary(uniqueIds);
+        selectedTrackIds.clear();
+        if (removesCurrentTrack) {
+            elements.trackLiveTitle.textContent = 'SNDECK // READY TO PLAY';
+            elements.trackLiveArtist.textContent = '';
+            elements.trackLiveAlbum.textContent = '';
+            elements.currentTimeDisplay.textContent = '0:00';
+            elements.durationDisplay.textContent = '0:00';
+            elements.seekBarProgress.style.width = '0%';
+            elements.seekBarWrapper.setAttribute('aria-valuenow', '0');
+            elements.seekBarWrapper.setAttribute('aria-valuetext', '0:00');
+            updateCoverArtDisplay();
+        }
+        if (removedCount > 0) window.CyberSound.playSuccess();
+        renderPlaylists();
+        renderTracks();
+    }
+
     elements.btnMoveSelected.addEventListener('click', moveSelectedTracksToPlaylist);
     elements.btnRemoveSelected.addEventListener('click', () => {
         const manager = window.PlaylistManager;
@@ -1289,6 +1457,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (removedCount > 0) window.CyberSound.playSuccess();
         renderPlaylists();
         renderTracks();
+    });
+    elements.btnDeleteSelected.addEventListener('click', () => {
+        deleteTracksFromLibrary(Array.from(selectedTrackIds));
     });
     elements.btnCancelPlaylistPicker.addEventListener('click', () => elements.playlistPickerModal.classList.remove('open'));
     elements.playlistPickerModal.addEventListener('click', (e) => {
@@ -1372,7 +1543,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 playNextTrack();
                 break;
             case 'KeyP':
-                playPrevTrack();
+                if (pKeyDownAt === null) {
+                    pKeyDownAt = performance.now();
+                    startSpinBoost('keyboard-p');
+                }
                 break;
             case 'KeyS':
             case 'KeyC':
@@ -1382,6 +1556,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.btnMute.click();
                 break;
         }
+    });
+
+    window.addEventListener('keyup', event => {
+        if (event.code !== 'KeyP' || pKeyDownAt === null) return;
+        const heldFor = performance.now() - pKeyDownAt;
+        stopSpinBoost('keyboard-p');
+        pKeyDownAt = null;
+        if (heldFor < 250) playPrevTrack();
     });
 
     // Native MediaSession Action Handlers

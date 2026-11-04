@@ -397,6 +397,28 @@ class CyberPlaylistManager {
         return removedCount;
     }
 
+    deleteTracksFromLibrary(trackIds) {
+        if (!Array.isArray(trackIds) || trackIds.length === 0) return 0;
+        const deleteIds = new Set(trackIds.filter(id => this.tracks.has(id)));
+        if (deleteIds.size === 0) return 0;
+
+        deleteIds.forEach(id => this.tracks.delete(id));
+        Object.values(this.playlists).forEach(playlist => {
+            playlist.trackIds = playlist.trackIds.filter(id => !deleteIds.has(id));
+        });
+        this.shuffledOrder = this.shuffledOrder.filter(id => !deleteIds.has(id));
+
+        if (deleteIds.has(this.currentTrackId)) {
+            this.currentTrackId = null;
+            if (this.onTrackChange) this.onTrackChange(null);
+        }
+        this.shuffleIndex = this.currentTrackId ? this.shuffledOrder.indexOf(this.currentTrackId) : 0;
+
+        this.saveToStorage();
+        this.notifyChange();
+        return deleteIds.size;
+    }
+
     toggleFavorite(trackId) {
         const favs = this.playlists.favorites.trackIds;
         const idx = favs.indexOf(trackId);

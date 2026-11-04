@@ -871,10 +871,11 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
 .bulk-selection-bar span { margin-right: auto; }
 .bulk-selection-bar button { padding: 4px 8px; font-size: 10px; }
 .bulk-selection-bar button[hidden] { display: none; }
-.btn-remove-selected, .btn-track-remove { color: var(--omi-pink); border-color: rgba(var(--omi-pink-rgb), .35); }
-.btn-remove-selected:hover, .btn-track-remove:hover { color: #FFF; border-color: var(--omi-pink); background: rgba(var(--omi-pink-rgb), .12); }
+.btn-remove-selected, .btn-delete-selected, .btn-track-remove, .btn-track-delete { color: var(--omi-pink); border-color: rgba(var(--omi-pink-rgb), .35); }
+.btn-remove-selected:hover, .btn-delete-selected:hover, .btn-track-remove:hover, .btn-track-delete:hover { color: #FFF; border-color: var(--omi-pink); background: rgba(var(--omi-pink-rgb), .12); }
 .btn-track-remove { width: 24px; height: 23px; padding: 3px; }
-.btn-track-remove svg { width: 12px; height: 12px; }
+.btn-track-remove svg, .btn-track-delete svg { width: 12px; height: 12px; }
+.btn-track-delete { width: 24px; height: 23px; padding: 3px; }
 .track-row.multi-selected { background: rgba(var(--omi-purple-rgb), 0.16); box-shadow: inset 3px 0 var(--omi-purple); }
 
 .track-row.active {
@@ -990,18 +991,66 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
 .seek-bar-wrapper {
     flex: 1;
     position: relative;
+    height: 20px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    background: transparent;
+    border: 0;
+    touch-action: none;
+    outline: none;
+}
+
+.seek-bar-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto;
     height: 7px;
-    cursor: pointer;
+    transform: translateY(-50%);
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(var(--omi-green-rgb), 0.2);
 }
 
+.seek-bar-wrapper:focus-visible::before {
+    border-color: var(--omi-green);
+    box-shadow: 0 0 8px rgba(var(--omi-green-rgb), .35);
+}
+
+.seek-bar-wrapper.seeking {
+    cursor: grabbing;
+    user-select: none;
+}
+
 .seek-bar-progress {
-    height: 100%;
+    height: 7px;
     width: 0%;
     background: linear-gradient(90deg, var(--omi-green), var(--omi-pink));
     box-shadow: 0 0 12px rgba(var(--omi-pink-rgb), 0.7);
     position: relative;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.seek-bar-progress::after {
+    content: '';
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: var(--cyber-text);
+    border: 2px solid var(--omi-pink);
+    box-shadow: 0 0 9px rgba(var(--omi-pink-rgb), .8);
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+
+.seek-bar-wrapper:hover .seek-bar-progress::after,
+.seek-bar-wrapper:focus-visible .seek-bar-progress::after,
+.seek-bar-wrapper.seeking .seek-bar-progress::after {
+    opacity: 1;
 }
 
 .controls-row {
