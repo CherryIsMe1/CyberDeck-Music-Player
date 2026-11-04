@@ -36,7 +36,7 @@ cargo install tauri-cli --version "^2.0"
 cargo tauri build
 ```
 
-The source version is `1.4.0`. The GitHub Actions workflow creates Windows installers from tags beginning with `v`, such as `v1.4.0`. Windows is the only packaged target at this time. The downloader provisions `yt-dlp` and Deno on first use and requires an internet connection.
+The source version is `1.5.0`. The GitHub Actions workflow creates Windows installers from tags beginning with `v`, such as `v1.5.0`. Windows is the only packaged target at this time. The downloader provisions `yt-dlp` and Deno on first use and requires an internet connection.
 
 If Windows still shows an old taskbar icon after an update, unpin the existing shortcut and pin the newly installed SNDeck shortcut.
 

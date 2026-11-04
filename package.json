@@ -1,6 +1,6 @@
 {
   "name": "sndeck",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "Windows music player",
   "main": "www/index.html"
