@@ -18,6 +18,99 @@ pub struct RippedTrackResult {
     pub cover_art: String,
 }
 
+fn deno_version_supported(executable: &std::path::Path) -> bool {
+    let output = match std::process::Command::new(executable).arg("--version").output() {
+        Ok(output) if output.status.success() => output,
+        _ => return false,
+    };
+    let version_line = String::from_utf8_lossy(&output.stdout);
+    let version = match version_line.split_whitespace().nth(1) {
+        Some(version) => version,
+        None => return false,
+    };
+    let mut parts = version.split('.');
+    let major = parts.next().and_then(|part| part.parse::<u32>().ok()).unwrap_or(0);
+    let minor = parts.next().and_then(|part| part.parse::<u32>().ok()).unwrap_or(0);
+    major > 2 || (major == 2 && minor >= 3)
+}
+
+/// Finds or downloads a supported JavaScript runtime for YouTube extraction.
+#[cfg(target_os = "windows")]
+async fn get_or_download_deno() -> Result<PathBuf, String> {
+    let local_dir = dirs::data_local_dir()
+        .ok_or_else(|| "Cannot determine local data directory".to_string())?
+        .join("SNDeck")
+        .join("bin");
+
+    let in_path = tokio::task::spawn_blocking(|| deno_version_supported(std::path::Path::new("deno")))
+        .await
+        .unwrap_or(false);
+    if in_path {
+        return Ok(PathBuf::from("deno"));
+    }
+
+    let deno_path = local_dir.join("deno.exe");
+    if deno_version_supported(&deno_path) {
+        return Ok(deno_path);
+    }
+
+    std::fs::create_dir_all(&local_dir)
+        .map_err(|e| format!("Cannot create SNDeck bin directory: {}", e))?;
+    #[cfg(target_arch = "x86_64")]
+    let download_url = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip";
+    #[cfg(target_arch = "aarch64")]
+    let download_url = "https://github.com/denoland/deno/releases/latest/download/deno-aarch64-pc-windows-msvc.zip";
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    let download_url = return Err("SNDeck cannot provision Deno for this Windows architecture. Install Deno 2.3+ and retry.".to_string());
+
+    let zip_path = local_dir.join("deno-runtime.zip");
+    let zip_string = zip_path.to_string_lossy().to_string();
+    let url = download_url.to_string();
+    let download_status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("curl")
+            .args(["-fL", "--retry", "2", "-o", &zip_string, &url])
+            .status()
+    })
+    .await
+    .map_err(|e| format!("Deno download task failed: {}", e))?
+    .map_err(|e| format!("Cannot start curl to download Deno: {}", e))?;
+    if !download_status.success() {
+        return Err("Could not download Deno. Install Deno 2.3+ and retry the YouTube rip.".to_string());
+    }
+
+    let zip_escaped = zip_path.to_string_lossy().replace("'", "''");
+    let dir_escaped = local_dir.to_string_lossy().replace("'", "''");
+    let extract_script = format!(
+        "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
+        zip_escaped, dir_escaped
+    );
+    let extract_status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &extract_script])
+            .status()
+    })
+    .await
+    .map_err(|e| format!("Deno extraction task failed: {}", e))?
+    .map_err(|e| format!("Cannot start PowerShell to extract Deno: {}", e))?;
+    let _ = std::fs::remove_file(&zip_path);
+    if !extract_status.success() || !deno_path.exists() {
+        return Err("Deno downloaded but could not be installed. Install Deno 2.3+ manually and retry.".to_string());
+    }
+    Ok(deno_path)
+}
+
+#[cfg(not(target_os = "windows"))]
+async fn get_or_download_deno() -> Result<PathBuf, String> {
+    let in_path = tokio::task::spawn_blocking(|| deno_version_supported(std::path::Path::new("deno")))
+        .await
+        .unwrap_or(false);
+    if in_path {
+        Ok(PathBuf::from("deno"))
+    } else {
+        Err("Install Deno 2.3+ to enable full YouTube support, then retry.".to_string())
+    }
+}
+
 /// Finds or downloads yt-dlp, returning the path to the executable.
 async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     // 1. Check if yt-dlp is on PATH
@@ -149,6 +242,10 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
         println!("[SNDeck] ffmpeg not found — downloading native audio format without transcoding.");
     }
 
+    // YouTube now requires an external JavaScript runtime for full extraction.
+    let youtube_url = url.contains("youtube.com") || url.contains("youtu.be");
+    let js_runtime = if youtube_url { Some(get_or_download_deno().await?) } else { None };
+
     // 2. Resolve yt-dlp executable
     let ytdlp_path = get_or_download_ytdlp().await?;
 
@@ -177,6 +274,10 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
 
     let output_res = tokio::task::spawn_blocking(move || {
         let mut cmd = std::process::Command::new(&ytdlp_str);
+        if let Some(ref runtime) = js_runtime {
+            cmd.arg("--js-runtimes")
+                .arg(format!("deno:{}", runtime.to_string_lossy()));
+        }
 
         if ffmpeg_in_local {
             if let Some(ref bin_dir) = local_bin_clone {
@@ -208,12 +309,17 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
 
     if !output_res.status.success() {
         let stderr = String::from_utf8_lossy(&output_res.stderr);
-        let last_err_line = stderr
+        let details = stderr
             .lines()
+            .filter(|line| !line.trim().is_empty())
             .rev()
-            .find(|l| !l.trim().is_empty())
-            .unwrap_or("yt-dlp process returned non-zero exit status");
-        return Err(format!("yt-dlp error: {}", last_err_line));
+            .take(6)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(format!("yt-dlp failed: {}", if details.is_empty() { "process returned a non-zero exit status" } else { &details }));
     }
 
     // yt-dlp prints each finalized path, supporting single videos and playlists.
@@ -229,7 +335,9 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
             year: String::new(), duration: 0, cover_art: String::new(),
         });
     }
-    if results.is_empty() { return Err("yt-dlp completed but did not report any downloaded audio files".to_string()); }
+    if results.is_empty() {
+        return Err("No audio files were produced. Check that the URL is a public YouTube video or playlist and try again.".to_string());
+    }
     Ok(results)
 }
 
