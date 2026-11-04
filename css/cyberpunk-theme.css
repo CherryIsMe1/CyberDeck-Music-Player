@@ -250,6 +250,15 @@ body::before {
     color: var(--omi-blue);
 }
 
+@media (min-width: 1281px) {
+    .header-telemetry {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+}
+
 .telemetry-item {
     display: flex;
     align-items: center;
