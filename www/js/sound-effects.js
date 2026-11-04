@@ -1,5 +1,5 @@
 /**
- * Cyberpunk UI Sound Synthesizer (Web Audio API)
+ * SNDeck UI Sound Synthesizer (Web Audio API)
  * Generates futuristic sci-fi interface feedback without external audio files.
  */
 class CyberSoundEffects {

@@ -1,9 +1,9 @@
 /**
- * Cyberpunk Edgerunners 2 - OMI Visualizer
+ * SNDeck audio visualizer
  * Modes:
  * 1. BASIC (record only; the record spins during playback)
  * 2. GORILLA BARS (Full-width 48-bar logarithmic frequency spectrum with peak hold)
- * 3. NOMAD LASER (Laser oscilloscope with hot pink chromatic split)
+ * 3. WAVEFORM (Audio waveform visualizer)
  * 4. BADLANDS 3D (Synthwave wireframe desert with mountains, sliced neon sun & cyber highway)
  */
 class CyberVisualizer {
@@ -27,6 +27,7 @@ class CyberVisualizer {
             orange: '#FF7700',    // Sunset orange
             white: '#FFFFFF'
         };
+        this.setTheme();
 
         // Static stars for Badlands 3D sky
         this.stars = [];
@@ -64,6 +65,17 @@ class CyberVisualizer {
 
     setMode(newMode) {
         this.mode = newMode;
+    }
+
+    setTheme() {
+        const styles = getComputedStyle(document.body);
+        for (const [key, variable] of Object.entries({
+            green: '--omi-green', purple: '--omi-purple', pink: '--omi-pink',
+            blue: '--omi-blue', yellow: '--omi-yellow', orange: '--omi-orange', white: '--cyber-text'
+        })) {
+            const value = styles.getPropertyValue(variable).trim();
+            if (value) this.colors[key] = value;
+        }
     }
 
     start() {
@@ -275,7 +287,7 @@ class CyberVisualizer {
                 } else if (ratio > 0.45) {
                     col = this.colors.purple; // Snake Nation purple
                 } else if (ratio > 0.2) {
-                    col = this.colors.green;  // Nomad green
+                    col = this.colors.green;  // Green theme accent
                 } else {
                     col = this.colors.blue;   // Deep cobalt blue base
                 }
@@ -292,7 +304,7 @@ class CyberVisualizer {
     }
 
     /**
-     * Mode 3: Nomad Laser (Oscilloscope Beam)
+     * Mode 3: Waveform (Oscilloscope)
      */
     drawNomadLaser(timeData, w, h) {
         const cy = h / 2;

@@ -1,13 +1,13 @@
 @echo off
-title EDGERUNNERS NEURAL AUDIO DECK 2077
+title SNDECK MUSIC PLAYER
 chcp 65001 >nul
 cls
 
 echo ======================================================================
-echo           CYBERPUNK EDGERUNNERS // NEURAL AUDIO DECK 2077
+echo           SNDECK // MUSIC PLAYER
 echo ======================================================================
 echo.
-echo [!] Launching the music player in Night City interface...
+echo [!] Launching SNDeck...
 echo.
 
 cd /d "%~dp0"

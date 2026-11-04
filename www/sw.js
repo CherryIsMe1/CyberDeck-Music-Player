@@ -1,4 +1,4 @@
-const CACHE_NAME = 'edgerunners-deck-v8';
+const CACHE_NAME = 'sndeck-v10';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -12,8 +12,6 @@ const ASSETS_TO_CACHE = [
   './js/visualizer.js',
   './js/ripper-engine.js',
   './js/app.js',
-  './assets/edgerunners_logo.svg',
-  './assets/omi_portrait.png',
   './assets/cyber_vinyl.svg'
 ];
 

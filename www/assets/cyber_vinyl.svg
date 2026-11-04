@@ -20,7 +20,7 @@
 
     <text x="100" y="93" font-family="'Orbitron', sans-serif" font-size="8" font-weight="900" fill="#FF1A75" text-anchor="middle" letter-spacing="1.5">SNAKE NATION</text>
     <text x="100" y="105" font-family="'Share Tech Mono', monospace" font-size="7" fill="#00FF88" text-anchor="middle">33 RPM • LP</text>
-    <text x="100" y="115" font-family="'Share Tech Mono', monospace" font-size="6" fill="#8B99AE" text-anchor="middle">NIGHT CITY 2077</text>
+    <text x="100" y="115" font-family="'Share Tech Mono', monospace" font-size="6" fill="#8B99AE" text-anchor="middle">SNDECK</text>
 
     <!-- Spindle Hole -->
     <circle cx="100" cy="100" r="6" fill="#07090E" stroke="rgba(255,255,255,0.3)" stroke-width="1" />

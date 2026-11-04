@@ -1,5 +1,5 @@
 /**
- * SNDeck Netrunner Ripper Engine (In-App Multi-Gateway Stream Extractor)
+ * SNDeck audio downloader
  * Extracts real audio streams directly inside the web app from YouTube, Spotify, and direct URLs.
  * Operates without external scripts or batch files.
  */
@@ -132,10 +132,10 @@ class CyberRipperEngine {
                     title: decodeURIComponent(filename),
                     artist: 'Network Stream',
                     album: 'SNDeck Ripper',
-                    year: '2077',
+                    year: new Date().getFullYear().toString(),
                     duration: 240,
                     url: input,
-                    coverArt: 'assets/omi_portrait.png',
+                    coverArt: 'assets/cyber_vinyl.svg',
                     isRipped: true
                 };
 
@@ -171,7 +171,7 @@ class CyberRipperEngine {
                 title: finalTitle,
                 artist: streamData.uploader || 'YouTube Audio',
                 album: 'SNDeck Stream',
-                year: '2077',
+                year: new Date().getFullYear().toString(),
                 duration: streamData.duration || 180,
                 url: streamData.audioUrl,
                 coverArt: finalCover,

@@ -1,6 +1,6 @@
 [package]
 name = "cyberdeck-player"
-version = "1.3.4"
+version = "1.3.5"
 description = "Snake Nation SNDeck audio player"
 authors = ["SNDeck"]
 edition = "2021"

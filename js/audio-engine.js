@@ -1,5 +1,5 @@
 /**
- * Cyberpunk Audio Engine
+ * SNDeck Audio Engine
  * Integrates HTML5 Audio with Web Audio API for EQ, Analyser, and Sandevistan Overclock DSP.
  */
 class CyberAudioEngine {

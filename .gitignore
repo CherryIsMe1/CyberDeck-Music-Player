@@ -14,3 +14,8 @@ ios/
 .pnpm-debug.log*
 .DS_Store
 Thumbs.db
+
+# User-selected artwork (stored locally by SNDeck)
+/user-art/
+/assets/custom-portraits/
+/www/assets/custom-portraits/

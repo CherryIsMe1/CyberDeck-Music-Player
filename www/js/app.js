@@ -1,5 +1,5 @@
 /**
- * Cyberpunk Edgerunners 2 - OMI // SNAKE NATION AUDIO DECK
+ * SNDeck audio player
  * Main App Controller
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -34,7 +34,27 @@ document.addEventListener('DOMContentLoaded', () => {
         btnMute: document.getElementById('btnMute'),
         muteIconSlot: document.getElementById('muteIconSlot'),
         btnToggleCover: document.getElementById('btnToggleCover'),
+        themeSelect: document.getElementById('themeSelect'),
+        btnCreateTheme: document.getElementById('btnCreateTheme'),
+        btnDeleteTheme: document.getElementById('btnDeleteTheme'),
+        themeDialog: document.getElementById('themeDialog'),
+        btnCloseThemeDialog: document.getElementById('btnCloseThemeDialog'),
+        customThemeForm: document.getElementById('customThemeForm'),
+        customThemeName: document.getElementById('customThemeName'),
+        customThemePrimary: document.getElementById('customThemePrimary'),
+        customThemeSecondary: document.getElementById('customThemeSecondary'),
+        customThemeAccent: document.getElementById('customThemeAccent'),
+        customThemeHighlight: document.getElementById('customThemeHighlight'),
+        btnPortraitSettings: document.getElementById('btnPortraitSettings'),
+        portraitDialog: document.getElementById('portraitDialog'),
+        portraitThemeName: document.getElementById('portraitThemeName'),
+        btnClosePortraitDialog: document.getElementById('btnClosePortraitDialog'),
+        btnChoosePortrait: document.getElementById('btnChoosePortrait'),
+        btnResetPortrait: document.getElementById('btnResetPortrait'),
+        portraitFileInput: document.getElementById('portraitFileInput'),
+        headerClanStatus: document.getElementById('headerClanStatus'),
         headerCoverStatus: document.getElementById('headerCoverStatus'),
+        btnToggleRetro: document.getElementById('btnToggleRetro'),
         btnToggleSound: document.getElementById('btnToggleSound'),
 
         // Display
@@ -97,17 +117,102 @@ document.addEventListener('DOMContentLoaded', () => {
     let prevVolume = Number.isFinite(savedPrevVolume) && savedPrevVolume > 0
         ? Math.min(1, savedPrevVolume)
         : (initialVolume > 0 ? initialVolume : 0.8);
-    let coverMode = localStorage.getItem('edgerunners_cover_mode') || 'omi'; // 'omi' | 'album'
+    const defaultPortrait = 'assets/cyber_vinyl.svg';
+    const themes = {
+        omi: { label: 'SN', portrait: defaultPortrait, clan: 'SNAKE NATION', clanColor: '--omi-purple' },
+        snd: { label: 'ER', portrait: defaultPortrait, clan: 'SNAKE NATION', clanColor: '--omi-blue' },
+        basic: { label: 'BASIC', portrait: defaultPortrait, clan: 'BASIC', clanColor: '--omi-green' },
+        blossom: { label: 'BLOSSOM', portrait: defaultPortrait, clan: 'BLOSSOM', clanColor: '--omi-pink' }
+    };
+    const customThemes = [];
+    const customThemeColorKeys = ['green', 'blue', 'pink', 'purple'];
+    const validThemeColor = value => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
+    const rgbFromHex = hex => {
+        const value = hex.slice(1);
+        return `${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}`;
+    };
+    try {
+        const savedThemes = JSON.parse(localStorage.getItem('sndeck_custom_themes') || '[]');
+        if (Array.isArray(savedThemes)) {
+            savedThemes.slice(0, 16).forEach((theme, index) => {
+                if (!theme || typeof theme.id !== 'string' || !theme.id.startsWith('custom-') ||
+                    typeof theme.label !== 'string' || !theme.label.trim() || theme.label.length > 24 ||
+                    !customThemeColorKeys.every(key => validThemeColor(theme.colors && theme.colors[key]))) return;
+                theme.label = theme.label.trim();
+                themes[theme.id] = {
+                    label: theme.label.toUpperCase(), clan: theme.label.toUpperCase(), clanColor: '--omi-green',
+                    portrait: defaultPortrait, custom: true, colors: theme.colors
+                };
+                customThemes.push({ id: theme.id, label: theme.label, colors: theme.colors });
+                const option = document.createElement('option');
+                option.value = theme.id;
+                option.textContent = theme.label.toUpperCase();
+                elements.themeSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        localStorage.removeItem('sndeck_custom_themes');
+    }
+    function applyCustomThemeColors(theme) {
+        const properties = ['--omi-green', '--omi-blue', '--omi-pink', '--omi-purple', '--omi-yellow',
+            '--omi-green-rgb', '--omi-blue-rgb', '--omi-pink-rgb', '--omi-purple-rgb', '--omi-yellow-rgb',
+            '--omi-green-glow', '--omi-blue-glow', '--omi-pink-glow', '--omi-purple-glow', '--cyber-panel-border'];
+        properties.forEach(property => document.body.style.removeProperty(property));
+        if (!theme || !theme.custom) return;
+        const colors = theme.colors;
+        for (const key of customThemeColorKeys) {
+            document.body.style.setProperty(`--omi-${key}`, colors[key]);
+            document.body.style.setProperty(`--omi-${key}-rgb`, rgbFromHex(colors[key]));
+            document.body.style.setProperty(`--omi-${key}-glow`, `0 0 14px rgba(${rgbFromHex(colors[key])}, .4)`);
+        }
+        document.body.style.setProperty('--omi-yellow', colors.pink);
+        document.body.style.setProperty('--omi-yellow-rgb', rgbFromHex(colors.pink));
+        document.body.style.setProperty('--cyber-panel-border', `rgba(${rgbFromHex(colors.pink)}, .3)`);
+    }
+    function saveCustomThemes() {
+        localStorage.setItem('sndeck_custom_themes', JSON.stringify(customThemes));
+    }
+    let customPortraits = {};
+    try {
+        const savedPortraits = JSON.parse(localStorage.getItem('sndeck_custom_portraits') || '{}');
+        for (const themeKey of Object.keys(themes)) {
+            if (typeof savedPortraits[themeKey] === 'string' && savedPortraits[themeKey].startsWith('data:image/')) {
+                customPortraits[themeKey] = savedPortraits[themeKey];
+            }
+        }
+    } catch (error) {
+        localStorage.removeItem('sndeck_custom_portraits');
+    }
+    function saveCustomPortraits() {
+        localStorage.setItem('sndeck_custom_portraits', JSON.stringify(customPortraits));
+    }
+    let activeTheme = localStorage.getItem('sndeck_theme') || 'omi';
+    if (!themes[activeTheme]) activeTheme = 'omi';
+    let coverMode = localStorage.getItem('sndeck_disc_view') || localStorage.getItem('edgerunners_cover_mode') || 'portrait';
+    if (coverMode === 'omi') coverMode = 'portrait';
+    if (coverMode !== 'album') coverMode = 'portrait';
+    elements.themeSelect.value = activeTheme;
+    document.body.dataset.theme = activeTheme;
+    applyCustomThemeColors(themes[activeTheme]);
+    visualizer.setTheme();
+    elements.headerClanStatus.textContent = themes[activeTheme].clan;
+    elements.headerClanStatus.style.color = `var(${themes[activeTheme].clanColor})`;
+    const retroEnabled = localStorage.getItem('sndeck_retro_effect') !== 'off';
+    document.getElementById('scanlines').classList.toggle('disabled', !retroEnabled);
+    elements.btnToggleRetro.textContent = `RETRO: ${retroEnabled ? 'ON' : 'OFF'}`;
+    elements.btnToggleRetro.setAttribute('aria-pressed', String(retroEnabled));
+    const initialThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (initialThemeColor) initialThemeColor.content = getComputedStyle(document.body).getPropertyValue('--cyber-dark-bg').trim();
+    elements.btnDeleteTheme.hidden = !themes[activeTheme].custom;
 
-    // Update Turntable Cover Art Display
     function updateCoverArtDisplay() {
         const track = window.PlaylistManager.getCurrentTrack();
-        if (coverMode === 'omi') {
-            elements.holoCoverArt.src = 'assets/omi_portrait.png';
-            elements.btnToggleCover.textContent = 'DISC VIEW: OMI PORTRAIT';
-            elements.btnToggleCover.classList.remove('mode-album');
+        elements.btnToggleCover.title = `Switch between ${themes[activeTheme].label} portrait and album cover`;
+        if (coverMode === 'portrait') {
+            elements.holoCoverArt.src = customPortraits[activeTheme] || themes[activeTheme].portrait;
+            elements.btnToggleCover.textContent = `DISC: ${themes[activeTheme].label}`;
             if (elements.headerCoverStatus) {
-                elements.headerCoverStatus.textContent = 'OMI PORTRAIT';
+                elements.headerCoverStatus.textContent = `${themes[activeTheme].label} PORTRAIT`;
                 elements.headerCoverStatus.style.color = 'var(--omi-pink)';
             }
         } else {
@@ -116,14 +221,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elements.holoCoverArt.src = 'assets/cyber_vinyl.svg';
             }
-            elements.btnToggleCover.textContent = 'DISC VIEW: ALBUM COVER';
-            elements.btnToggleCover.classList.add('mode-album');
+            elements.btnToggleCover.textContent = 'DISC: ALBUM';
             if (elements.headerCoverStatus) {
                 elements.headerCoverStatus.textContent = 'ALBUM COVER';
                 elements.headerCoverStatus.style.color = 'var(--omi-green)';
             }
         }
     }
+
+    elements.holoCoverArt.addEventListener('error', () => {
+        if (elements.holoCoverArt.src.startsWith('data:image/')) {
+            delete customPortraits[activeTheme];
+            try { saveCustomPortraits(); } catch (error) { /* Keep the generic fallback available. */ }
+        }
+        if (!elements.holoCoverArt.src.endsWith('/assets/cyber_vinyl.svg')) {
+            elements.holoCoverArt.src = defaultPortrait;
+        }
+    });
 
     window.onCoverRestored = (restoredTrack) => {
         const current = window.PlaylistManager.getCurrentTrack();
@@ -193,10 +307,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update Now Playing UI
         elements.trackLiveTitle.textContent = track.title || 'Unknown Track';
         elements.trackLiveArtist.textContent = track.artist || 'Unknown Artist';
-        elements.trackLiveAlbum.textContent = `${track.album || 'NOMAD_DECK'} • ${track.year || '2077'}`;
+        elements.trackLiveAlbum.textContent = `${track.album || 'SNDeck'} • ${track.year || new Date().getFullYear()}`;
 
         updateCoverArtDisplay();
-        if (!track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
+        if (track && !track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
             window.PlaylistManager.restoreTrackCover(track).then(() => {
                 updateCoverArtDisplay();
             });
@@ -208,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: track.title,
                 artist: track.artist,
                 album: track.album,
-                artwork: track.coverArt ? [{ src: track.coverArt, sizes: '512x512', type: 'image/jpeg' }] : [{ src: 'assets/omi_portrait.png', sizes: '512x512', type: 'image/png' }]
+                artwork: track.coverArt ? [{ src: track.coverArt, sizes: '512x512', type: 'image/jpeg' }] : [{ src: defaultPortrait, sizes: '512x512', type: 'image/svg+xml' }]
             });
         }
 
@@ -299,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateVolumeDisplay(val) {
-        elements.volPercent.textContent = `${Math.round(val * 100)}%`;
+        elements.volPercent.value = String(Math.round(val * 100));
+        elements.volumeSlider.style.setProperty('--volume-level', `${Math.round(val * 100)}%`);
         if (val === 0) {
             elements.muteIconSlot.innerHTML = ICONS.mute;
             isMuted = true;
@@ -320,6 +435,32 @@ document.addEventListener('DOMContentLoaded', () => {
         updateVolumeDisplay(val);
     });
 
+    function commitVolumePercent() {
+        if (elements.volPercent.value.trim() === '') {
+            updateVolumeDisplay(window.AudioEngine.getVolume());
+            return;
+        }
+        const percent = Number(elements.volPercent.value);
+        if (!Number.isFinite(percent)) {
+            updateVolumeDisplay(window.AudioEngine.getVolume());
+            return;
+        }
+        const val = Math.max(0, Math.min(100, percent)) / 100;
+        window.AudioEngine.setVolume(val);
+        elements.volumeSlider.value = val;
+        saveVolume(val);
+        updateVolumeDisplay(val);
+    }
+
+    elements.volPercent.addEventListener('change', commitVolumePercent);
+    elements.volPercent.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            commitVolumePercent();
+            elements.volPercent.blur();
+        }
+    });
+
     elements.btnMute.addEventListener('click', () => {
         window.CyberSound.playClick();
         if (isMuted) {
@@ -336,13 +477,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Toggle Cover Mode (Omi Portrait vs Album Art)
     function cycleCoverMode() {
         window.CyberSound.playClick();
-        coverMode = coverMode === 'omi' ? 'album' : 'omi';
-        localStorage.setItem('edgerunners_cover_mode', coverMode);
+        coverMode = coverMode === 'portrait' ? 'album' : 'portrait';
+        localStorage.setItem('sndeck_disc_view', coverMode);
         updateCoverArtDisplay();
-        if (!track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
+        const track = window.PlaylistManager.getCurrentTrack();
+        if (track && !track.coverArt && track.filePath && window.PlaylistManager.restoreTrackCover) {
             window.PlaylistManager.restoreTrackCover(track).then(() => {
                 updateCoverArtDisplay();
             });
@@ -351,6 +492,152 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.btnToggleCover.addEventListener('click', cycleCoverMode);
     elements.holoTurntable.addEventListener('click', cycleCoverMode);
+    elements.btnCreateTheme.addEventListener('click', () => {
+        elements.customThemeForm.reset();
+        elements.customThemeName.value = '';
+        elements.themeDialog.showModal();
+        elements.customThemeName.focus();
+    });
+    elements.btnCloseThemeDialog.addEventListener('click', () => elements.themeDialog.close());
+    elements.customThemeForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const label = elements.customThemeName.value.trim();
+        if (!label) return;
+        if (customThemes.some(theme => theme.label.toLowerCase() === label.toLowerCase())) {
+            alert('A theme with this name already exists.');
+            return;
+        }
+        if (customThemes.length >= 16) {
+            alert('You can save up to 16 custom themes.');
+            return;
+        }
+        const customTheme = {
+            id: `custom-${Date.now().toString(36)}`,
+            label,
+            colors: {
+                green: elements.customThemePrimary.value,
+                blue: elements.customThemeSecondary.value,
+                pink: elements.customThemeAccent.value,
+                purple: elements.customThemeHighlight.value
+            }
+        };
+        customThemes.push(customTheme);
+        try {
+            saveCustomThemes();
+        } catch (error) {
+            customThemes.pop();
+            alert('There is not enough browser storage to save another theme.');
+            return;
+        }
+        themes[customTheme.id] = {
+            label: label.toUpperCase(), clan: label.toUpperCase(), clanColor: '--omi-green',
+            portrait: defaultPortrait, custom: true, colors: customTheme.colors
+        };
+        const option = document.createElement('option');
+        option.value = customTheme.id;
+        option.textContent = label.toUpperCase();
+        elements.themeSelect.appendChild(option);
+        elements.themeDialog.close();
+        elements.themeSelect.value = customTheme.id;
+        elements.themeSelect.dispatchEvent(new Event('change'));
+    });
+    elements.btnDeleteTheme.addEventListener('click', () => {
+        const theme = themes[activeTheme];
+        if (!theme || !theme.custom) return;
+        if (!confirm(`Delete the custom theme “${theme.label}”?`)) return;
+        const oldThemes = [...customThemes];
+        const oldPortraits = { ...customPortraits };
+        const deletedKey = activeTheme;
+        const deletedIndex = customThemes.findIndex(item => item.id === deletedKey);
+        if (deletedIndex >= 0) customThemes.splice(deletedIndex, 1);
+        delete customPortraits[deletedKey];
+        try {
+            saveCustomThemes();
+            saveCustomPortraits();
+        } catch (error) {
+            customThemes.splice(0, customThemes.length, ...oldThemes);
+            customPortraits = oldPortraits;
+            alert('Could not delete the theme because browser storage is unavailable.');
+            return;
+        }
+        elements.themeSelect.querySelector(`option[value="${deletedKey}"]`)?.remove();
+        delete themes[deletedKey];
+        elements.themeSelect.value = 'omi';
+        elements.themeSelect.dispatchEvent(new Event('change'));
+    });
+    elements.btnPortraitSettings.addEventListener('click', () => {
+        elements.portraitThemeName.textContent = themes[activeTheme].label;
+        elements.portraitDialog.showModal();
+    });
+    elements.btnClosePortraitDialog.addEventListener('click', () => elements.portraitDialog.close());
+    elements.btnChoosePortrait.addEventListener('click', () => elements.portraitFileInput.click());
+    elements.btnResetPortrait.addEventListener('click', () => {
+        delete customPortraits[activeTheme];
+        saveCustomPortraits();
+        updateCoverArtDisplay();
+        elements.portraitDialog.close();
+    });
+    elements.portraitFileInput.addEventListener('change', async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            alert('Choose an image file.');
+            event.target.value = '';
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            alert('Choose an image smaller than 20 MB.');
+            event.target.value = '';
+            return;
+        }
+        let bitmap;
+        try {
+            bitmap = await createImageBitmap(file);
+            const maxSize = 640;
+            const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+            canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Image conversion is unavailable.');
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            const previousPortraits = { ...customPortraits };
+            customPortraits[activeTheme] = canvas.toDataURL('image/webp', 0.86);
+            try {
+                saveCustomPortraits();
+            } catch (storageError) {
+                customPortraits = previousPortraits;
+                throw new Error('There is not enough browser storage for this portrait.');
+            }
+            updateCoverArtDisplay();
+            elements.portraitDialog.close();
+        } catch (error) {
+            alert(error.message || 'Could not load this image.');
+        } finally {
+            if (bitmap) bitmap.close();
+            event.target.value = '';
+        }
+    });
+    elements.themeSelect.addEventListener('change', (e) => {
+        activeTheme = e.target.value;
+        localStorage.setItem('sndeck_theme', activeTheme);
+        document.body.dataset.theme = activeTheme;
+        applyCustomThemeColors(themes[activeTheme]);
+        visualizer.setTheme();
+        elements.headerClanStatus.textContent = themes[activeTheme].clan;
+        elements.headerClanStatus.style.color = `var(${themes[activeTheme].clanColor})`;
+        elements.btnDeleteTheme.hidden = !themes[activeTheme].custom;
+        const themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.content = getComputedStyle(document.body).getPropertyValue('--cyber-dark-bg').trim();
+        updateCoverArtDisplay();
+    });
+    elements.btnToggleRetro.addEventListener('click', () => {
+        const enabled = elements.btnToggleRetro.getAttribute('aria-pressed') !== 'true';
+        document.getElementById('scanlines').classList.toggle('disabled', !enabled);
+        elements.btnToggleRetro.textContent = `RETRO: ${enabled ? 'ON' : 'OFF'}`;
+        elements.btnToggleRetro.setAttribute('aria-pressed', String(enabled));
+        localStorage.setItem('sndeck_retro_effect', enabled ? 'on' : 'off');
+    });
 
     // UI Sound Mute Toggle
     elements.btnToggleSound.addEventListener('click', () => {

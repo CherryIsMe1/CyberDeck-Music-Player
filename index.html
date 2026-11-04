@@ -7,7 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF1A75">
     <link rel="stylesheet" href="css/cyberpunk-theme.css">
-    <link rel="icon" type="image/svg+xml" href="assets/edgerunners_logo.svg">
+    <link rel="icon" type="image/svg+xml" href="assets/cyber_vinyl.svg">
 </head>
 <body>
     <!-- CRT Scanline Overlay -->
@@ -33,7 +33,6 @@
     <header class="header-bar">
         <div class="logo-group">
             <span class="logo-badge">SNDECK</span>
-            <div class="logo-title">SNAKE NATION <span>// SNDECK</span></div>
         </div>
 
         <div class="header-telemetry">
@@ -43,21 +42,27 @@
             </div>
             <div class="telemetry-item">
                 <span>CLAN:</span>
-                <span style="color: var(--omi-purple);">SNAKE NATION</span>
+                <span id="headerClanStatus" style="color: var(--omi-purple);">SNAKE NATION</span>
             </div>
             <div class="telemetry-item">
                 <span>VIEW:</span>
-                <span id="headerCoverStatus" style="color: var(--omi-pink);">OMI PORTRAIT</span>
+                <span id="headerCoverStatus" style="color: var(--omi-pink);">SN PORTRAIT</span>
             </div>
         </div>
 
         <div class="header-actions">
-            <button class="btn-cover-toggle cyber-cut-sm" id="btnToggleCover" title="Toggle Disc View: Omi Portrait / Album Cover">
-                DISC VIEW: OMI PORTRAIT
-            </button>
-            <button class="btn-cyber-icon" id="btnToggleSound" title="Interface Sound Effects">
-                SFX: ON
-            </button>
+            <select class="btn-cyber-icon theme-select" id="themeSelect" aria-label="Choose SNDeck theme">
+                <option value="omi">SN</option>
+                <option value="snd">ER</option>
+                <option value="blossom">BLOSSOM</option>
+                <option value="basic">BASIC</option>
+            </select>
+            <button class="btn-cyber-icon theme-create-button" id="btnCreateTheme" type="button" title="Create a custom theme" aria-label="Create a custom theme">+</button>
+            <button class="btn-cyber-icon theme-delete-button" id="btnDeleteTheme" type="button" title="Delete the selected custom theme" hidden>DELETE</button>
+            <button class="btn-cyber-icon" id="btnPortraitSettings" type="button" title="Set a custom portrait for this theme">ART</button>
+            <button class="btn-cyber-icon" id="btnToggleCover" title="Switch between theme portrait and album cover">DISC: SN</button>
+            <button class="btn-cyber-icon" id="btnToggleRetro" type="button" aria-pressed="true" title="Toggle CRT scanline effect">RETRO: ON</button>
+            <button class="btn-cyber-icon" id="btnToggleSound" title="Interface Sound Effects">SFX: ON</button>
         </div>
     </header>
 
@@ -117,8 +122,8 @@
 
                 <div class="canvas-container">
                     <canvas id="cyberVisualizerCanvas"></canvas>
-                    <div class="holo-turntable" id="holoTurntable" title="Click to toggle view: Omi Portrait / Album Cover">
-                        <img class="holo-cover-art" id="holoCoverArt" src="assets/omi_portrait.png" alt="Disc Cover Art">
+                    <div class="holo-turntable" id="holoTurntable" title="Click to toggle view: Theme Portrait / Album Cover">
+                        <img class="holo-cover-art" id="holoCoverArt" src="assets/cyber_vinyl.svg" alt="Disc Cover Art">
                     </div>
                 </div>
 
@@ -126,7 +131,7 @@
                     <div class="track-main-info">
                         <div class="track-live-title" id="trackLiveTitle">SNDECK // READY TO PLAY</div>
                         <div class="track-live-artist" id="trackLiveArtist">Select a track or load MP3 files</div>
-                        <div class="track-live-album" id="trackLiveAlbum">SNAKE NATION • BADLANDS AUDIO 2077</div>
+                        <div class="track-live-album" id="trackLiveAlbum">SNAKE NATION • AUDIO</div>
                     </div>
                 </div>
             </div>
@@ -228,7 +233,7 @@
             <div class="transport-left-group">
                 <!-- Volume & Mute -->
                 <div class="volume-control-box">
-                    <button class="btn-cyber-icon" id="btnMute" title="Mute / Unmute" style="padding: 5px 8px;">
+                    <button class="btn-cyber-icon volume-mute-btn" id="btnMute" title="Mute / Unmute">
                         <span id="muteIconSlot">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
@@ -236,7 +241,8 @@
                         </span>
                     </button>
                     <input type="range" class="vol-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.8">
-                    <span class="vol-pct" id="volPercent">80%</span>
+                    <input class="vol-pct" id="volPercent" type="number" min="0" max="100" step="1" value="80" aria-label="Volume percentage" title="Type a volume from 0 to 100 percent">
+                    <span class="vol-pct-suffix">%</span>
                 </div>
 
                 <!-- Mode Toggles (Shuffle & Repeat) -->
@@ -317,7 +323,40 @@
         </div>
     </div>
 
-    <!-- MODAL: NETRUNNER RIPPER (IN-APP YOUTUBE & AUDIO EXTRACTOR) -->
+    <dialog class="portrait-dialog" id="portraitDialog" aria-labelledby="portraitDialogTitle">
+        <div class="portrait-dialog-header">
+            <h2 id="portraitDialogTitle">CUSTOM PORTRAIT // <span id="portraitThemeName">SN</span></h2>
+            <button class="btn-cyber-icon portrait-close" id="btnClosePortraitDialog" type="button" aria-label="Close">×</button>
+        </div>
+        <p>Choose an image for this theme. It stays on this device and is not uploaded.</p>
+        <div class="portrait-dialog-actions">
+            <button class="btn-cyber-block cyber-cut-sm" id="btnChoosePortrait" type="button">CHOOSE IMAGE</button>
+            <button class="btn-cyber-icon" id="btnResetPortrait" type="button">USE DEFAULT</button>
+        </div>
+    </dialog>
+    <input type="file" id="portraitFileInput" accept="image/*" hidden>
+    <dialog class="portrait-dialog theme-dialog" id="themeDialog" aria-labelledby="themeDialogTitle">
+        <div class="portrait-dialog-header">
+            <h2 id="themeDialogTitle">CREATE CUSTOM THEME</h2>
+            <button class="btn-cyber-icon portrait-close" id="btnCloseThemeDialog" type="button" aria-label="Close">×</button>
+        </div>
+        <p>Choose a name and accent colors. The theme is saved only on this device. You can set its portrait with ART after creating it.</p>
+        <form id="customThemeForm">
+            <label class="theme-field">THEME NAME
+                <input id="customThemeName" type="text" maxlength="24" required autocomplete="off" placeholder="My theme">
+            </label>
+            <div class="theme-color-grid">
+                <label>PRIMARY<input id="customThemePrimary" type="color" value="#00ff88"></label>
+                <label>SECONDARY<input id="customThemeSecondary" type="color" value="#0088ff"></label>
+                <label>ACCENT<input id="customThemeAccent" type="color" value="#ff1a75"></label>
+                <label>HIGHLIGHT<input id="customThemeHighlight" type="color" value="#b026ff"></label>
+            </div>
+            <div class="portrait-dialog-actions">
+                <button class="btn-cyber-block cyber-cut-sm" type="submit">CREATE THEME</button>
+            </div>
+        </form>
+    </dialog>
+    <!-- MODAL: RIPPER -->
     <div class="cyber-modal" id="ripperModal">
         <div class="modal-box cyber-cut ripper-modal-box">
             <div class="ripper-header">

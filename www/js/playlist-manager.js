@@ -1,5 +1,5 @@
 /**
- * Cyberpunk Playlist & Track Manager
+ * SNDeck Playlist & Track Manager
  * Handles track storage, custom playlists, sorting, filtering, shuffle, repeat, and localStorage persistence.
  */
 class CyberPlaylistManager {
