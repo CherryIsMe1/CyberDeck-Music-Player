@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateSpinBoost(now) {
         if (spinBoostSources.size === 0) return;
         const ramp = Math.min(1, (now - spinBoostStartedAt) / 2000);
-        setTurntableSpinRate(1 + ramp);
+        setTurntableSpinRate(1 + ramp * 4);
         if (ramp < 1) spinBoostFrame = requestAnimationFrame(animateSpinBoost);
     }
 
