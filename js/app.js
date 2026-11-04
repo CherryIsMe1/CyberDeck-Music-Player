@@ -1051,8 +1051,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 let tracksToPlay = rippedTracks;
                 if (isTauri && rippedTracks.some(track => track.filePath)) {
                     const paths = rippedTracks.filter(track => track.filePath).map(track => track.filePath);
-                    await window.PlaylistManager.addFilesFromPaths(paths);
                     const normalizedPaths = new Set(paths.map(path => path.toLowerCase().replace(/\\/g, '/')));
+                    const rippedMetadataByPath = new Map(rippedTracks
+                        .filter(track => track.filePath)
+                        .map(track => [track.filePath.toLowerCase().replace(/\\/g, '/'), track]));
+                    await window.PlaylistManager.addFilesFromPaths(paths, rippedMetadataByPath);
                     tracksToPlay = Array.from(window.PlaylistManager.tracks.values()).filter(track =>
                         track.filePath && normalizedPaths.has(track.filePath.toLowerCase().replace(/\\/g, '/'))
                     );

@@ -360,6 +360,7 @@ async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -
         }
 
         cmd.arg("--yes-playlist")
+            .arg("--write-info-json")
             .arg("-o").arg(&output_str)
             .arg(&url_clone)
             .output()
@@ -407,16 +408,57 @@ async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -
                 .map_err(|e| format!("Cannot move downloaded audio into SNDeck library: {}", e))?;
         }
         let path = if destination.exists() { destination } else { source_path };
-        let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        let info_path = source_path.with_extension("info.json");
+        let info = std::fs::read(&info_path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .unwrap_or_else(|| serde_json::json!({}));
+        let file_title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        let fallback_title = file_title
+            .rsplit_once(" [")
+            .filter(|(_, suffix)| suffix.ends_with(']'))
+            .map(|(title, _)| title)
+            .unwrap_or(&file_title);
+        let title = info.get("title").and_then(|value| value.as_str())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(fallback_title)
+            .to_string();
+        let listed_artists = info.get("artists").and_then(|value| value.as_array())
+            .map(|artists| artists.iter().filter_map(|artist| artist.as_str()).collect::<Vec<_>>().join(", "))
+            .filter(|artists| !artists.trim().is_empty());
+        let artist = info.get("artist").and_then(|value| value.as_str())
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| listed_artists.as_deref())
+            .or_else(|| info.get("creator").and_then(|value| value.as_str()))
+            .or_else(|| info.get("uploader").and_then(|value| value.as_str()))
+            .unwrap_or("Unknown Artist")
+            .to_string();
+        let album = info.get("album").and_then(|value| value.as_str())
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| info.get("playlist_title").and_then(|value| value.as_str()))
+            .unwrap_or("Unknown Album")
+            .to_string();
+        let year = info.get("release_year").and_then(|value| value.as_i64())
+            .map(|year| year.to_string())
+            .or_else(|| info.get("upload_date").and_then(|value| value.as_str())
+                .filter(|date| date.len() >= 4)
+                .map(|date| date[..4].to_string()))
+            .unwrap_or_default();
+        let duration = info.get("duration").and_then(|value| value.as_f64())
+            .map(|seconds| seconds.max(0.0) as u32)
+            .unwrap_or(0);
+        let cover_art = info.get("thumbnail").and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string();
         results.push(RippedTrackResult {
             success: true,
             file_path: path.to_string_lossy().to_string(),
             title,
-            artist: "Snake Nation".to_string(),
-            album: "SNDeck".to_string(),
-            year: String::new(),
-            duration: 0,
-            cover_art: String::new(),
+            artist,
+            album,
+            year,
+            duration,
+            cover_art,
         });
     }
     let _ = std::fs::remove_dir_all(&rip_dir);

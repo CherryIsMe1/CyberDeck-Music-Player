@@ -76,7 +76,7 @@ class CyberRipperEngine {
                         duration: result.duration || 0,
                         url: window.__TAURI__.core.convertFileSrc(result.filePath),
                         filePath: result.filePath,
-                        coverArt: null,
+                        coverArt: result.coverArt || null,
                         isRipped: true
                     }));
                 } catch (err) {
