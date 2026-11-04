@@ -19,4 +19,4 @@ The GitHub Actions release workflow currently builds Windows installers (`.msi` 
 
 ## YouTube ripper
 
-In the Windows app, open **RIPPER**, paste a YouTube video or playlist URL, choose a target playlist, and execute. SNDeck downloads all items supported by yt-dlp into `Music/SNDeck` and adds the downloaded tracks to the selected playlist. Spotify playlist links are not supported by the native downloader.
+In the Windows app, open **RIPPER**, paste a YouTube video or playlist URL, choose a target playlist, and execute. On first use SNDeck downloads the Deno runtime required by yt-dlp. It then downloads all supported playlist items into `Music/SNDeck` and adds them to the selected playlist. Spotify playlist links are not supported by the native downloader.

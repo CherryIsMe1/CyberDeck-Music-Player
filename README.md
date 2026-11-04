@@ -55,7 +55,7 @@ Head over to the [**Releases**](https://github.com) section to download ready-to
 
 To download real 320 kbps MP3 files with complete ID3 tags and high-resolution cover art:
 1. Open **RIPPER** in the Windows app.
-2. Paste a YouTube video or playlist URL. The Windows downloader downloads every item in a playlist into your `Music/SNDeck/` folder.
+2. Paste a YouTube video or playlist URL. On first use, SNDeck downloads the Deno runtime required by yt-dlp. Then it downloads playlist items into `Music/SNDeck/`.
 3. The downloaded tracks are added to the selected playlist automatically.
 4. Spotify playlist URLs are not supported by the native downloader yet.
 
