@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RippedTrackResult {
@@ -271,6 +272,7 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
     let output_str = output_template.to_string_lossy().to_string();
     let url_clone = url.clone();
     let local_bin_clone = local_bin.clone();
+    let before_time = SystemTime::now();
 
     let output_res = tokio::task::spawn_blocking(move || {
         let mut cmd = std::process::Command::new(&ytdlp_str);
@@ -322,21 +324,49 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
         return Err(format!("yt-dlp failed: {}", if details.is_empty() { "process returned a non-zero exit status" } else { &details }));
     }
 
-    // yt-dlp prints each finalized path, supporting single videos and playlists.
-    let printed_paths = String::from_utf8_lossy(&output_res.stdout);
+    // Use both yt-dlp's finalized-path output and the filesystem timestamp scan.
+    // The scan preserves the previously working Windows behavior and finds every
+    // newly downloaded playlist item even if yt-dlp emits no --print line.
     let mut results = Vec::new();
+    let mut seen_paths = std::collections::HashSet::new();
+    let printed_paths = String::from_utf8_lossy(&output_res.stdout);
     for printed_path in printed_paths.lines().map(str::trim).filter(|line| !line.is_empty()) {
         let path = PathBuf::from(printed_path);
-        if !path.is_file() { continue; }
-        let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
-        results.push(RippedTrackResult {
-            success: true, file_path: path.to_string_lossy().to_string(), title,
-            artist: "Snake Nation".to_string(), album: "SNDeck".to_string(),
-            year: String::new(), duration: 0, cover_art: String::new(),
-        });
+        if path.is_file() && seen_paths.insert(path.to_string_lossy().to_lowercase()) {
+            let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+            results.push(RippedTrackResult {
+                success: true, file_path: path.to_string_lossy().to_string(), title,
+                artist: "Snake Nation".to_string(), album: "SNDeck".to_string(),
+                year: String::new(), duration: 0, cover_art: String::new(),
+            });
+        }
     }
+
+    let recent_files = std::fs::read_dir(&music_dir)
+        .map_err(|e| format!("Cannot scan SNDeck music folder: {}", e))?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            [".mp3", ".m4a", ".webm", ".opus", ".ogg", ".wav", ".flac", ".aac"]
+                .iter().any(|ext| name.ends_with(ext))
+        })
+        .filter(|entry| entry.metadata().ok().and_then(|meta| meta.modified().ok())
+            .map(|modified| modified >= before_time).unwrap_or(false));
+    for entry in recent_files {
+        let path = entry.path();
+        if seen_paths.insert(path.to_string_lossy().to_lowercase()) {
+            let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+            results.push(RippedTrackResult {
+                success: true, file_path: path.to_string_lossy().to_string(), title,
+                artist: "Snake Nation".to_string(), album: "SNDeck".to_string(),
+                year: String::new(), duration: 0, cover_art: String::new(),
+            });
+        }
+    }
+
+    results.sort_by(|a, b| a.file_path.to_lowercase().cmp(&b.file_path.to_lowercase()));
     if results.is_empty() {
-        return Err("No audio files were produced. Check that the URL is a public YouTube video or playlist and try again.".to_string());
+        return Err("yt-dlp finished but no new audio files were found. Check its output and try again.".to_string());
     }
     Ok(results)
 }
