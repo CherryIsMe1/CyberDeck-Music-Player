@@ -10,7 +10,7 @@ class CyberVisualizer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.mode = 'snake-coil'; // 'snake-coil' | 'gorilla-bars' | 'nomad-laser' | 'badlands-3d'
+        this.mode = 'gorilla-bars'; // 'snake-coil' | 'gorilla-bars' | 'nomad-laser' | 'badlands-3d'
         this.isRunning = false;
         this.peakLevels = [];
         this.peakDecay = 1.4;
@@ -88,12 +88,14 @@ class CyberVisualizer {
         
         const norm = index / Math.max(1, totalPoints - 1);
         
-        // Musical range: 35 Hz (sub-bass) to 9,500 Hz (treble / cymbals)
+        // Spread bars across the analyser's full usable range, including high treble.
+        const sampleRate = window.AudioEngine.ctx?.sampleRate || 48000;
+        const nyquist = sampleRate / 2;
         const fMin = 35;
-        const fMax = 9500;
+        const fMax = nyquist * 0.94;
         const targetFreq = fMin * Math.pow(fMax / fMin, norm);
-        
-        const binSize = 44100 / (freqData.length * 2);
+
+        const binSize = nyquist / freqData.length;
         const centerBin = targetFreq / binSize;
         
         // Dynamic bandwidth: narrower at bass, wider at upper octaves
@@ -238,8 +240,8 @@ class CyberVisualizer {
             const rawVal = this.getLogFrequency(k, halfPoints, freqData);
             const normVal = Math.min(1.0, rawVal / 255);
             // Power curve so quiet moments are subtle and peaks stay contained
-            const dynamicVal = Math.pow(normVal, 1.25);
-            const barLen = Math.max(4, dynamicVal * (baseRadius * 0.58));
+            const dynamicVal = Math.pow(normVal, 0.78);
+            const barLen = 7 + dynamicVal * (baseRadius * 0.48);
 
             const isAccent = k % 3 === 0;
             const strokeColor = isAccent ? this.colors.pink : (k % 2 === 0 ? this.colors.green : this.colors.purple);
@@ -283,19 +285,19 @@ class CyberVisualizer {
      * Every bar across the entire screen moves dynamically in rhythm!
      */
     drawGorillaBars(freqData, w, h) {
-        const barCount = 48;
-        const barSpacing = 4;
+        const barCount = 64;
+        const barSpacing = 3;
         const totalSpacing = barSpacing * (barCount - 1);
         const barWidth = Math.max(3, (w - 24 - totalSpacing) / barCount);
-        // Headroom: maximum 60% of canvas height so it never touches top ceiling!
-        const maxHeight = h * 0.60;
+        // Keep headroom while letting quiet treble bands use the full width.
+        const maxHeight = h * 0.68;
         const offsetX = (w - (barCount * barWidth + totalSpacing)) / 2;
 
         for (let i = 0; i < barCount; i++) {
             const rawVal = this.getLogFrequency(i, barCount, freqData);
             const normVal = Math.min(1.0, rawVal / 255);
             // Power curve keeps bass dynamic and avoids flat ceiling wall
-            const dynamicVal = Math.pow(normVal, 1.25);
+            const dynamicVal = Math.pow(normVal, 0.78);
             const barHeight = Math.max(3, dynamicVal * maxHeight);
             const x = offsetX + i * (barWidth + barSpacing);
             const y = h - barHeight - 18;
@@ -408,8 +410,8 @@ class CyberVisualizer {
             this.ctx.fillRect(sx, sy, star.size, star.size);
         });
 
-        // 2. Sliced Retro Cyberpunk Sun on Horizon
-        const sunRadius = 55 + bassRatio * 18;
+        // 2. Large, responsive sunset disc, scaled to the available canvas.
+        const sunRadius = Math.min(w * 0.18, h * 0.29) * (0.96 + bassRatio * 0.12);
         const sunGrad = this.ctx.createLinearGradient(vanishingX, horizon - sunRadius, vanishingX, horizon);
         sunGrad.addColorStop(0, '#FF1A75');  // Omi Hot Pink at top
         sunGrad.addColorStop(0.5, '#FF7700'); // Orange middle
@@ -442,6 +444,17 @@ class CyberVisualizer {
             const sliceHeight = 1.2 + s * 1.1;
             this.ctx.fillRect(vanishingX - sunRadius - 5, sliceY, (sunRadius + 5) * 2, sliceHeight);
         }
+        this.ctx.restore();
+
+        // Bright rim keeps the sun readable against the horizon and mountain line.
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(vanishingX, horizon, sunRadius, Math.PI, Math.PI * 2);
+        this.ctx.strokeStyle = 'rgba(255, 224, 128, 0.95)';
+        this.ctx.lineWidth = Math.max(2, sunRadius * 0.018);
+        this.ctx.shadowColor = '#FF7700';
+        this.ctx.shadowBlur = Math.max(18, sunRadius * 0.32);
+        this.ctx.stroke();
         this.ctx.restore();
 
         // 3. Wireframe Badlands Mountains on Horizon

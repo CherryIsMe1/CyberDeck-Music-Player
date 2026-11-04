@@ -21,7 +21,7 @@
         </svg>
         <div class="drop-zone-text">UPLOAD AUDIO TO NEURAL DECK</div>
         <div style="font-family: 'Share Tech Mono', monospace; color: var(--omi-blue);">
-            DROP MP3 FILES OR FOLDERS HERE
+            DROP AUDIO FILES OR FOLDERS HERE
         </div>
     </div>
 
@@ -69,12 +69,11 @@
         <aside class="cyber-panel cyber-cut">
             <div class="panel-header">
                 <span>BEATS & PLAYLISTS</span>
-                <span class="header-code">[MOD_01]</span>
             </div>
 
             <div class="sidebar-actions">
                 <button class="btn-cyber-block cyber-cut-sm" id="btnImportFiles">
-                    <span>+</span> ADD MP3 FILES
+                    <span>+</span> ADD AUDIO FILES
                 </button>
                 <button class="btn-cyber-block cyber-cut-sm btn-cyber-secondary" id="btnImportFolder">
                     <span>+</span> ADD FOLDER
@@ -105,13 +104,13 @@
             <div class="visualizer-card cyber-cut">
                 <div class="visualizer-toolbar">
                     <div style="font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--omi-green);">
-                        FREQUENCY SPECTRUM // SNAKE HUD
+                        AUDIO VISUALIZER
                     </div>
                     <div class="mode-pills">
-                        <button class="btn-mode-pill active" data-mode="snake-coil">SNAKE COIL</button>
-                        <button class="btn-mode-pill" data-mode="gorilla-bars">GORILLA BARS</button>
-                        <button class="btn-mode-pill" data-mode="nomad-laser">NOMAD LASER</button>
-                        <button class="btn-mode-pill" data-mode="badlands-3d">BADLANDS 3D</button>
+                        <button class="btn-mode-pill active" data-mode="gorilla-bars">SPECTRUM</button>
+                        <button class="btn-mode-pill" data-mode="snake-coil">ORBIT</button>
+                        <button class="btn-mode-pill" data-mode="nomad-laser">WAVEFORM</button>
+                        <button class="btn-mode-pill" data-mode="badlands-3d">HORIZON</button>
                     </div>
                 </div>
 
@@ -198,6 +197,12 @@
                         <option value="duration-desc">Duration (Longest)</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="bulk-selection-bar" id="bulkSelectionBar" hidden>
+                <span id="selectedTrackCount">0 SELECTED</span>
+                <button class="btn-cyber-icon" id="btnMoveSelected" type="button">MOVE TO...</button>
+                <button class="btn-cyber-icon" id="btnClearSelection" type="button" title="Clear selection">CLEAR</button>
             </div>
 
             <div class="track-scroll-list" id="trackScrollList">
@@ -299,12 +304,23 @@
         </div>
     </div>
 
+    <!-- MODAL: CHOOSE PLAYLIST DESTINATION -->
+    <div class="cyber-modal" id="playlistPickerModal">
+        <div class="modal-box cyber-cut playlist-picker-box">
+            <div class="modal-title" id="playlistPickerTitle">MOVE TRACKS // SNDECK</div>
+            <div class="playlist-picker-hint" id="playlistPickerHint">SELECT A DESTINATION</div>
+            <div class="playlist-picker-list" id="playlistPickerList"></div>
+            <div class="modal-btns">
+                <button class="btn-cyber-icon" id="btnCancelPlaylistPicker" type="button">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: NETRUNNER RIPPER (IN-APP YOUTUBE & AUDIO EXTRACTOR) -->
     <div class="cyber-modal" id="ripperModal">
         <div class="modal-box cyber-cut ripper-modal-box">
             <div class="ripper-header">
                 <div class="modal-title" style="color: var(--omi-purple); letter-spacing: 1.5px;">NETRUNNER // YOUTUBE AUDIO RIPPER</div>
-                <span class="ripper-badge">v2.077</span>
             </div>
             
             <div class="ripper-desc">
@@ -358,7 +374,6 @@
     <!-- Scripts -->
     <script src="js/id3-parser.js"></script>
     <script src="js/sound-effects.js"></script>
-    <script src="js/sample-tracks.js"></script>
     <script src="js/audio-engine.js"></script>
     <script src="js/playlist-manager.js"></script>
     <script src="js/visualizer.js"></script>
