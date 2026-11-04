@@ -119,7 +119,8 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
         std::process::Command::new("yt-dlp")
             .arg("--version")
             .output()
-            .is_ok()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
     })
     .await
     .unwrap_or(false);
@@ -139,7 +140,14 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     #[cfg(not(target_os = "windows"))]
     let ytdlp_path = local_dir.join("yt-dlp");
 
-    if ytdlp_path.exists() {
+    let local_works = tokio::task::spawn_blocking({
+        let path = ytdlp_path.clone();
+        move || std::process::Command::new(path).arg("--version").output()
+            .map(|output| output.status.success()).unwrap_or(false)
+    })
+    .await
+    .unwrap_or(false);
+    if local_works {
         return Ok(ytdlp_path);
     }
 
@@ -156,7 +164,7 @@ async fn get_or_download_ytdlp() -> Result<PathBuf, String> {
     let dest_str = ytdlp_path.to_string_lossy().to_string();
     let status = tokio::task::spawn_blocking(move || {
         std::process::Command::new("curl")
-            .args(["-L", "-o", &dest_str, download_url])
+            .args(["-fL", "--retry", "2", "-o", &dest_str, download_url])
             .status()
     })
     .await
@@ -233,7 +241,8 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
         std::process::Command::new("ffmpeg")
             .arg("-version")
             .output()
-            .is_ok()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
     })
     .await
     .unwrap_or(false);
@@ -244,7 +253,8 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
     }
 
     // YouTube now requires an external JavaScript runtime for full extraction.
-    let youtube_url = url.contains("youtube.com") || url.contains("youtu.be");
+    let normalized_url = url.to_ascii_lowercase();
+    let youtube_url = normalized_url.contains("youtube.com") || normalized_url.contains("youtu.be");
     let js_runtime = if youtube_url { Some(get_or_download_deno().await?) } else { None };
 
     // 2. Resolve yt-dlp executable
@@ -260,7 +270,14 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
     std::fs::create_dir_all(&music_dir)
         .map_err(|e| format!("Cannot create music dir: {}", e))?;
 
-    let output_template = music_dir.join("%(title)s [%(id)s].%(ext)s");
+    let run_id = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let rip_dir = music_dir.join(format!(".rip-{}-{}", std::process::id(), run_id));
+    std::fs::create_dir_all(&rip_dir)
+        .map_err(|e| format!("Cannot create temporary rip folder: {}", e))?;
+    let output_template = rip_dir.join("%(title)s [%(id)s].%(ext)s");
     let bit_rate = match quality.as_str() {
         "192k" => "192K",
         "256k" => "256K",
@@ -272,7 +289,6 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
     let output_str = output_template.to_string_lossy().to_string();
     let url_clone = url.clone();
     let local_bin_clone = local_bin.clone();
-    let before_time = SystemTime::now();
 
     let output_res = tokio::task::spawn_blocking(move || {
         let mut cmd = std::process::Command::new(&ytdlp_str);
@@ -300,7 +316,6 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
         }
 
         cmd.arg("--yes-playlist")
-            .arg("--print").arg("after_move:filepath")
             .arg("-o").arg(&output_str)
             .arg(&url_clone)
             .output()
@@ -310,63 +325,63 @@ async fn rip_audio_stream(url: String, quality: String) -> Result<Vec<RippedTrac
     .map_err(|e| format!("Failed to launch yt-dlp: {}", e))?;
 
     if !output_res.status.success() {
+        let _ = std::fs::remove_dir_all(&rip_dir);
         let stderr = String::from_utf8_lossy(&output_res.stderr);
-        let details = stderr
-            .lines()
+        let stdout = String::from_utf8_lossy(&output_res.stdout);
+        let details = stderr.lines().chain(stdout.lines())
             .filter(|line| !line.trim().is_empty())
-            .rev()
-            .take(6)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>()
-            .join("\n");
+            .rev().take(8).collect::<Vec<_>>()
+            .into_iter().rev().collect::<Vec<_>>().join("\n");
         return Err(format!("yt-dlp failed: {}", if details.is_empty() { "process returned a non-zero exit status" } else { &details }));
     }
 
-    // Use both yt-dlp's finalized-path output and the filesystem timestamp scan.
-    // The scan preserves the previously working Windows behavior and finds every
-    // newly downloaded playlist item even if yt-dlp emits no --print line.
-    let mut results = Vec::new();
-    let mut seen_paths = std::collections::HashSet::new();
-    let printed_paths = String::from_utf8_lossy(&output_res.stdout);
-    for printed_path in printed_paths.lines().map(str::trim).filter(|line| !line.is_empty()) {
-        let path = PathBuf::from(printed_path);
-        if path.is_file() && seen_paths.insert(path.to_string_lossy().to_lowercase()) {
-            let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
-            results.push(RippedTrackResult {
-                success: true, file_path: path.to_string_lossy().to_string(), title,
-                artist: "Snake Nation".to_string(), album: "SNDeck".to_string(),
-                year: String::new(), duration: 0, cover_art: String::new(),
-            });
-        }
-    }
-
-    let recent_files = std::fs::read_dir(&music_dir)
-        .map_err(|e| format!("Cannot scan SNDeck music folder: {}", e))?
+    // Each rip uses a fresh output folder. This reliably collects every item,
+    // including a single track and playlist entries even when yt-dlp skips its
+    // --print output or the same title/ID already exists in the library folder.
+    let audio_extensions = ["mp3", "m4a", "webm", "opus", "ogg", "wav", "flac", "aac"];
+    let mut downloaded = std::fs::read_dir(&rip_dir)
+        .map_err(|e| format!("Cannot read temporary rip folder: {}", e))?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            let name = entry.file_name().to_string_lossy().to_lowercase();
-            [".mp3", ".m4a", ".webm", ".opus", ".ogg", ".wav", ".flac", ".aac"]
-                .iter().any(|ext| name.ends_with(ext))
-        })
-        .filter(|entry| entry.metadata().ok().and_then(|meta| meta.modified().ok())
-            .map(|modified| modified >= before_time).unwrap_or(false));
-    for entry in recent_files {
-        let path = entry.path();
-        if seen_paths.insert(path.to_string_lossy().to_lowercase()) {
-            let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
-            results.push(RippedTrackResult {
-                success: true, file_path: path.to_string_lossy().to_string(), title,
-                artist: "Snake Nation".to_string(), album: "SNDeck".to_string(),
-                year: String::new(), duration: 0, cover_art: String::new(),
-            });
-        }
-    }
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file() && path.extension().and_then(|ext| ext.to_str())
+            .map(|ext| audio_extensions.iter().any(|audio_ext| ext.eq_ignore_ascii_case(audio_ext)))
+            .unwrap_or(false))
+        .collect::<Vec<_>>();
+    downloaded.sort();
 
-    results.sort_by(|a, b| a.file_path.to_lowercase().cmp(&b.file_path.to_lowercase()));
+    let mut results = Vec::new();
+    for source_path in downloaded {
+        let file_name = source_path.file_name().ok_or_else(|| "Downloaded audio file has no filename".to_string())?;
+        let destination = music_dir.join(file_name);
+        if destination.exists() {
+            std::fs::remove_file(&source_path)
+                .map_err(|e| format!("Cannot clean duplicate temporary download: {}", e))?;
+        } else {
+            std::fs::rename(&source_path, &destination)
+                .map_err(|e| format!("Cannot move downloaded audio into SNDeck library: {}", e))?;
+        }
+        let path = if destination.exists() { destination } else { source_path };
+        let title = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        results.push(RippedTrackResult {
+            success: true,
+            file_path: path.to_string_lossy().to_string(),
+            title,
+            artist: "Snake Nation".to_string(),
+            album: "SNDeck".to_string(),
+            year: String::new(),
+            duration: 0,
+            cover_art: String::new(),
+        });
+    }
+    let _ = std::fs::remove_dir_all(&rip_dir);
     if results.is_empty() {
-        return Err("yt-dlp finished but no new audio files were found. Check its output and try again.".to_string());
+        let stderr = String::from_utf8_lossy(&output_res.stderr);
+        let stdout = String::from_utf8_lossy(&output_res.stdout);
+        let details = stderr.lines().chain(stdout.lines())
+            .filter(|line| !line.trim().is_empty())
+            .rev().take(8).collect::<Vec<_>>()
+            .into_iter().rev().collect::<Vec<_>>().join("\n");
+        return Err(format!("yt-dlp finished without audio files. {}", if details.is_empty() { "No audio output was reported." } else { &details }));
     }
     Ok(results)
 }

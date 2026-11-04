@@ -52,6 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnConfirmPlaylist: document.getElementById('btnConfirmPlaylist'),
         btnCancelPlaylist: document.getElementById('btnCancelPlaylist'),
         activePlaylistTitle: document.getElementById('activePlaylistTitle'),
+        playlistPickerModal: document.getElementById('playlistPickerModal'),
+        playlistPickerTitle: document.getElementById('playlistPickerTitle'),
+        playlistPickerHint: document.getElementById('playlistPickerHint'),
+        playlistPickerList: document.getElementById('playlistPickerList'),
+        btnCancelPlaylistPicker: document.getElementById('btnCancelPlaylistPicker'),
 
         // Ripper
         btnOpenRipper: document.getElementById('btnOpenRipper'),
@@ -70,6 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput: document.getElementById('searchInput'),
         sortSelect: document.getElementById('sortSelect'),
         trackCountBadge: document.getElementById('trackCountBadge'),
+        bulkSelectionBar: document.getElementById('bulkSelectionBar'),
+        selectedTrackCount: document.getElementById('selectedTrackCount'),
+        btnMoveSelected: document.getElementById('btnMoveSelected'),
+        btnClearSelection: document.getElementById('btnClearSelection'),
 
         // EQ
         presetSelect: document.getElementById('presetSelect'),
@@ -81,7 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isSeeking = false;
     let isMuted = false;
-    let prevVolume = 0.8;
+    const savedVolume = localStorage.getItem('sndeck_volume');
+    const parsedVolume = savedVolume === null ? 0.8 : parseFloat(savedVolume);
+    const initialVolume = Number.isFinite(parsedVolume) ? Math.max(0, Math.min(1, parsedVolume)) : 0.8;
+    const savedPrevVolume = parseFloat(localStorage.getItem('sndeck_prev_volume'));
+    let prevVolume = Number.isFinite(savedPrevVolume) && savedPrevVolume > 0
+        ? Math.min(1, savedPrevVolume)
+        : (initialVolume > 0 ? initialVolume : 0.8);
     let coverMode = localStorage.getItem('edgerunners_cover_mode') || 'omi'; // 'omi' | 'album'
 
     // Update Turntable Cover Art Display
@@ -226,8 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const activeList = window.PlaylistManager.getActiveTracks();
             if (activeList.length > 0) {
                 await playTrack(activeList[0]);
-            } else {
-                loadSampleDemoTrack('chill');
             }
             return;
         }
@@ -277,6 +290,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Volume
+    function saveVolume(val) {
+        localStorage.setItem('sndeck_volume', String(val));
+        if (val > 0) {
+            prevVolume = val;
+            localStorage.setItem('sndeck_prev_volume', String(val));
+        }
+    }
+
     function updateVolumeDisplay(val) {
         elements.volPercent.textContent = `${Math.round(val * 100)}%`;
         if (val === 0) {
@@ -288,9 +309,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    window.AudioEngine.setVolume(initialVolume);
+    elements.volumeSlider.value = initialVolume;
+    updateVolumeDisplay(initialVolume);
+
     elements.volumeSlider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
         window.AudioEngine.setVolume(val);
+        saveVolume(val);
         updateVolumeDisplay(val);
     });
 
@@ -299,11 +325,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isMuted) {
             window.AudioEngine.setVolume(prevVolume);
             elements.volumeSlider.value = prevVolume;
+            saveVolume(prevVolume);
             updateVolumeDisplay(prevVolume);
         } else {
             prevVolume = window.AudioEngine.getVolume() || 0.8;
             window.AudioEngine.setVolume(0);
             elements.volumeSlider.value = 0;
+            saveVolume(0);
             updateVolumeDisplay(0);
         }
     });
@@ -441,20 +469,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    async function loadSampleDemoTrack(type) {
-        const sample = await window.CyberSampleGenerator.generateTrack(type);
-        window.PlaylistManager.addCustomTrack(sample);
-        renderPlaylists();
-        renderTracks();
-        playTrack(sample);
-    }
+
 
     // =========================================================================
     // DRAG & DROP
     // =========================================================================
     window.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        elements.dropZoneOverlay.classList.add('active');
+        const types = Array.from(e.dataTransfer?.types || []);
+        const internalDrag = types.includes('application/x-sndeck-track') || types.includes('application/x-sndeck-playlist');
+        if (internalDrag) {
+            e.preventDefault();
+            return;
+        }
+        if (types.includes('Files')) {
+            e.preventDefault();
+            elements.dropZoneOverlay.classList.add('active');
+        }
     });
 
     window.addEventListener('dragleave', (e) => {
@@ -464,6 +494,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('drop', async (e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        if (types.includes('application/x-sndeck-track') || types.includes('application/x-sndeck-playlist')) {
+            e.preventDefault();
+            return;
+        }
         e.preventDefault();
         elements.dropZoneOverlay.classList.remove('active');
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -474,13 +509,85 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // PLAYLISTS MANAGEMENT
     // =========================================================================
+    let draggedPlaylistId = null;
+    let draggedTrackId = null;
+    let draggedTrackIds = [];
+    let draggedTrackSourcePlaylistId = null;
+    const selectedTrackIds = new Set();
+
     function renderPlaylists() {
         elements.playlistsContainer.innerHTML = '';
         const pls = window.PlaylistManager.playlists;
+        const allPlaylists = Object.values(pls);
+        const favoriteDirectories = allPlaylists.filter(pl => !pl.system && pl.favorite);
+        const systemDirectories = ['recent', 'favorites', 'all'].map(id => pls[id]).filter(Boolean);
+        const otherDirectories = allPlaylists.filter(pl => !pl.system && !pl.favorite);
 
-        Object.values(pls).forEach(pl => {
+        [...favoriteDirectories, ...systemDirectories, ...otherDirectories].forEach(pl => {
             const item = document.createElement('div');
             item.className = `playlist-item ${pl.id === window.PlaylistManager.activePlaylistId ? 'active' : ''}`;
+            if (!pl.system) {
+                item.draggable = true;
+                item.addEventListener('dragstart', (e) => {
+                    draggedPlaylistId = pl.id;
+                    draggedTrackId = null;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('application/x-sndeck-playlist', pl.id);
+                    e.dataTransfer.setData('text/plain', `playlist:${pl.id}`);
+                    item.classList.add('dragging');
+                });
+                item.addEventListener('dragend', () => {
+                    draggedPlaylistId = null;
+                    item.classList.remove('dragging');
+                    document.querySelectorAll('.playlist-item.drag-target').forEach(el => el.classList.remove('drag-target'));
+                });
+                item.addEventListener('dragover', (e) => {
+                    if ((draggedPlaylistId && draggedPlaylistId !== pl.id) || draggedTrackId) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        item.classList.add('drag-target');
+                    }
+                });
+                item.addEventListener('dragleave', () => item.classList.remove('drag-target'));
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    item.classList.remove('drag-target');
+                    const manager = window.PlaylistManager;
+                    if (draggedTrackId) {
+                        const idsToMove = draggedTrackIds.length ? draggedTrackIds : [draggedTrackId];
+                        const source = manager.playlists[draggedTrackSourcePlaylistId];
+                        idsToMove.forEach(id => {
+                            manager.addTrackToPlaylist(pl.id, id);
+                            if (source && !source.system && source.id !== pl.id) {
+                                manager.removeTrackFromPlaylist(source.id, id);
+                            }
+                        });
+                        draggedTrackId = null;
+                        draggedTrackIds = [];
+                        draggedTrackSourcePlaylistId = null;
+                        window.CyberSound.playSuccess();
+                        renderPlaylists();
+                        renderTracks();
+                        return;
+                    }
+                    if (draggedPlaylistId && draggedPlaylistId !== pl.id) {
+                        const ids = Object.values(manager.playlists).filter(list => !list.system).map(list => list.id);
+                        const from = ids.indexOf(draggedPlaylistId);
+                        const target = ids.indexOf(pl.id);
+                        if (from >= 0 && target >= 0) {
+                            const [moved] = ids.splice(from, 1);
+                            const rect = item.getBoundingClientRect();
+                            let insertion = target + (e.clientY > rect.top + rect.height / 2 ? 1 : 0);
+                            if (from < insertion) insertion--;
+                            ids.splice(insertion, 0, moved);
+                            manager.reorderCustomPlaylists(ids);
+                            renderPlaylists();
+                        }
+                        draggedPlaylistId = null;
+                    }
+                });
+            }
 
             const nameSpan = document.createElement('span');
             nameSpan.textContent = pl.name;
@@ -495,6 +602,21 @@ document.addEventListener('DOMContentLoaded', () => {
             rightWrap.appendChild(badge);
 
             if (!pl.system) {
+                const favoriteBtn = document.createElement('button');
+                favoriteBtn.className = `btn-favorite-playlist ${pl.favorite ? 'is-favorite' : ''}`;
+                favoriteBtn.type = 'button';
+                favoriteBtn.textContent = pl.favorite ? '★' : '☆';
+                favoriteBtn.title = pl.favorite ? 'Unpin favorite directory' : 'Pin favorite directory';
+                favoriteBtn.setAttribute('aria-label', favoriteBtn.title);
+                favoriteBtn.setAttribute('aria-pressed', String(!!pl.favorite));
+                favoriteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.CyberSound.playClick();
+                    window.PlaylistManager.togglePlaylistFavorite(pl.id);
+                    renderPlaylists();
+                });
+                rightWrap.appendChild(favoriteBtn);
+
                 const delBtn = document.createElement('button');
                 delBtn.className = 'btn-del-playlist';
                 delBtn.innerHTML = '&times;';
@@ -546,6 +668,13 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.playlistModal.classList.remove('open');
             renderPlaylists();
             renderTracks();
+        }
+    });
+
+    elements.playlistNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            elements.btnConfirmPlaylist.click();
         }
     });
 
@@ -662,6 +791,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     function renderTracks() {
         const activeTracks = window.PlaylistManager.getActiveTracks();
+        const visibleTrackIds = new Set(activeTracks.map(track => track.id));
+        Array.from(selectedTrackIds).forEach(id => { if (!visibleTrackIds.has(id)) selectedTrackIds.delete(id); });
+        elements.bulkSelectionBar.hidden = selectedTrackIds.size === 0;
+        elements.selectedTrackCount.textContent = `${selectedTrackIds.size} SELECTED`;
+        elements.btnMoveSelected.disabled = selectedTrackIds.size === 0;
         elements.trackScrollList.innerHTML = '';
         elements.trackCountBadge.textContent = `${activeTracks.length} TRACKS`;
 
@@ -673,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
             emptyNotice.style.fontFamily = "'Share Tech Mono', monospace";
             emptyNotice.innerHTML = `
                 <div style="font-size: 13px; color: var(--omi-green); letter-spacing: 1px; margin-bottom: 6px;">[EMPTY AUDIO DIRECTORY]</div>
-                <div style="font-size: 11px;">Drag & drop MP3 files here or click + ADD MP3 FILES</div>
+                <div style="font-size: 11px;">Drag & drop audio files here or click + ADD AUDIO FILES</div>
             `;
             elements.trackScrollList.appendChild(emptyNotice);
             return;
@@ -685,6 +819,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const row = document.createElement('div');
             row.className = `track-row ${isCurrent ? 'active' : ''}`;
+            row.classList.toggle('multi-selected', selectedTrackIds.has(track.id));
+            row.draggable = true;
+            row.addEventListener('dragstart', (e) => {
+                if (e.target.closest('button')) { e.preventDefault(); return; }
+                draggedTrackId = track.id;
+                draggedTrackIds = selectedTrackIds.has(track.id) ? Array.from(selectedTrackIds) : [track.id];
+                draggedTrackSourcePlaylistId = window.PlaylistManager.activePlaylistId;
+                draggedPlaylistId = null;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('application/x-sndeck-track', track.id);
+                e.dataTransfer.setData('text/plain', `track:${track.id}`);
+            });
+            row.addEventListener('dragend', () => {
+                draggedTrackId = null;
+                draggedTrackIds = [];
+                draggedTrackSourcePlaylistId = null;
+                document.querySelectorAll('.playlist-item.drag-target').forEach(el => el.classList.remove('drag-target'));
+            });
 
             // Track index or indicator
             const numEl = document.createElement('div');
@@ -727,8 +879,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add to Playlist Button
             const addPlBtn = document.createElement('button');
             addPlBtn.className = 'btn-track-action';
-            addPlBtn.innerHTML = `<span>+</span> <span>PL</span>`;
-            addPlBtn.setAttribute('title', 'Add to Playlist');
+            const activePlaylist = window.PlaylistManager.playlists[window.PlaylistManager.activePlaylistId];
+            const canMoveTrack = activePlaylist && !activePlaylist.system && activePlaylist.trackIds.includes(track.id);
+            addPlBtn.innerHTML = canMoveTrack ? `<span>→</span> <span>PL</span>` : `<span>+</span> <span>PL</span>`;
+            addPlBtn.setAttribute('title', canMoveTrack ? 'Move to another playlist' : 'Add to Playlist');
             addPlBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 promptAddToPlaylist(track);
@@ -740,7 +894,17 @@ document.addEventListener('DOMContentLoaded', () => {
             row.appendChild(favBtn);
             row.appendChild(addPlBtn);
 
-            row.addEventListener('click', () => {
+            row.addEventListener('click', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    if (selectedTrackIds.has(track.id)) selectedTrackIds.delete(track.id);
+                    else selectedTrackIds.add(track.id);
+                    renderTracks();
+                    return;
+                }
+                if (selectedTrackIds.size) {
+                    selectedTrackIds.clear();
+                    renderTracks();
+                }
                 playTrack(track);
             });
 
@@ -748,25 +912,69 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function promptAddToPlaylist(track) {
-        const customPlaylists = Object.values(window.PlaylistManager.playlists)
-            .filter(p => !p.system);
-
-        if (customPlaylists.length === 0) {
-            alert("No custom playlists found. Click '+ NEW' in the left panel to create one.");
+    function openPlaylistPicker(trackIds, isMove, title) {
+        const manager = window.PlaylistManager;
+        const source = manager.playlists[manager.activePlaylistId];
+        const destinations = Object.values(manager.playlists)
+            .filter(playlist => !playlist.system && (!isMove || playlist.id !== source.id));
+        if (!destinations.length) {
+            alert("No other custom playlists found. Click '+ NEW' in the left panel to create one.");
             return;
         }
 
-        const names = customPlaylists.map((p, idx) => `${idx + 1}. ${p.name}`).join('\n');
-        const choice = prompt(`Select playlist number for "${track.title}":\n\n${names}`);
-        const chosenIdx = parseInt(choice, 10) - 1;
+        elements.playlistPickerTitle.textContent = title;
+        elements.playlistPickerHint.textContent = `${trackIds.length} TRACK${trackIds.length === 1 ? '' : 'S'} · SELECT DESTINATION`;
+        elements.playlistPickerList.innerHTML = '';
+        destinations.forEach(playlist => {
+            const button = document.createElement('button');
+            button.className = 'playlist-picker-option';
+            button.type = 'button';
+            button.innerHTML = `<span class="playlist-picker-option-name"></span><span class="playlist-picker-option-count">${playlist.trackIds.length} TRACKS</span><span class="playlist-picker-arrow">›</span>`;
+            button.querySelector('.playlist-picker-option-name').textContent = playlist.name;
+            button.addEventListener('click', () => {
+                trackIds.forEach(id => {
+                    manager.addTrackToPlaylist(playlist.id, id);
+                    if (isMove) manager.removeTrackFromPlaylist(source.id, id);
+                });
+                selectedTrackIds.clear();
+                elements.playlistPickerModal.classList.remove('open');
+                window.CyberSound.playSuccess();
+                renderPlaylists();
+                renderTracks();
+            });
+            elements.playlistPickerList.appendChild(button);
+        });
+        elements.playlistPickerModal.classList.add('open');
+    }
 
-        if (!isNaN(chosenIdx) && customPlaylists[chosenIdx]) {
-            const targetPl = customPlaylists[chosenIdx];
-            window.PlaylistManager.addTrackToPlaylist(targetPl.id, track.id);
-            window.CyberSound.playSuccess();
-            renderPlaylists();
+    function moveSelectedTracksToPlaylist() {
+        const source = window.PlaylistManager.playlists[window.PlaylistManager.activePlaylistId];
+        openPlaylistPicker(Array.from(selectedTrackIds), !!(source && !source.system), 'MOVE TRACKS // SNDECK');
+    }
+
+    elements.btnMoveSelected.addEventListener('click', moveSelectedTracksToPlaylist);
+    elements.btnCancelPlaylistPicker.addEventListener('click', () => elements.playlistPickerModal.classList.remove('open'));
+    elements.playlistPickerModal.addEventListener('click', (e) => {
+        if (e.target === elements.playlistPickerModal) elements.playlistPickerModal.classList.remove('open');
+    });
+    elements.btnClearSelection.addEventListener('click', () => {
+        selectedTrackIds.clear();
+        renderTracks();
+    });
+
+    function promptAddToPlaylist(track) {
+        const manager = window.PlaylistManager;
+        const source = manager.playlists[manager.activePlaylistId];
+        const isMove = source && !source.system && source.trackIds.includes(track.id);
+        const destinations = Object.values(manager.playlists)
+            .filter(playlist => !playlist.system && (!isMove || playlist.id !== source.id));
+
+        if (destinations.length === 0) {
+            alert("No other custom playlists found. Click '+ NEW' in the left panel to create one.");
+            return;
         }
+
+        openPlaylistPicker([track.id], isMove, `${isMove ? 'MOVE' : 'ADD'} TRACK // SNDECK`);
     }
 
     // Search & Sort Event Listeners
@@ -787,6 +995,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT') return;
 
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') {
+            e.preventDefault();
+            window.PlaylistManager.getActiveTracks().forEach(track => selectedTrackIds.add(track.id));
+            renderTracks();
+            return;
+        }
+
         switch (e.code) {
             case 'Space':
                 e.preventDefault();
@@ -805,6 +1020,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newVolUp = Math.min(1, window.AudioEngine.getVolume() + 0.05);
                 window.AudioEngine.setVolume(newVolUp);
                 elements.volumeSlider.value = newVolUp;
+                saveVolume(newVolUp);
                 updateVolumeDisplay(newVolUp);
                 break;
             case 'ArrowDown':
@@ -812,6 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newVolDown = Math.max(0, window.AudioEngine.getVolume() - 0.05);
                 window.AudioEngine.setVolume(newVolDown);
                 elements.volumeSlider.value = newVolDown;
+                saveVolume(newVolDown);
                 updateVolumeDisplay(newVolDown);
                 break;
             case 'KeyN':

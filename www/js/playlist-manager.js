@@ -6,7 +6,7 @@ class CyberPlaylistManager {
     constructor() {
         this.tracks = new Map(); // id -> track object
         this.playlists = {
-            'all': { id: 'all', name: 'ALL TRACKS // DECK', trackIds: [], system: true },
+            'all': { id: 'all', name: 'ALL TRACKS', trackIds: [], system: true },
             'favorites': { id: 'favorites', name: 'FAVORITES', trackIds: [], system: true },
             'recent': { id: 'recent', name: 'RECENTLY PLAYED', trackIds: [], system: true }
         };
@@ -328,6 +328,15 @@ class CyberPlaylistManager {
         }
     }
 
+    togglePlaylistFavorite(id) {
+        const playlist = this.playlists[id];
+        if (!playlist || playlist.system) return false;
+        playlist.favorite = !playlist.favorite;
+        this.saveToStorage();
+        this.notifyChange();
+        return playlist.favorite;
+    }
+
     deletePlaylist(id) {
         if (this.playlists[id] && !this.playlists[id].system) {
             delete this.playlists[id];
@@ -337,6 +346,20 @@ class CyberPlaylistManager {
             this.saveToStorage();
             this.notifyChange();
         }
+    }
+
+    reorderCustomPlaylists(orderedIds) {
+        const systemEntries = Object.entries(this.playlists).filter(([, playlist]) => playlist.system);
+        const customEntries = Object.entries(this.playlists).filter(([, playlist]) => !playlist.system);
+        const byId = new Map(customEntries);
+        const reordered = orderedIds.map(id => [id, byId.get(id)]).filter(([, playlist]) => playlist);
+        const included = new Set(reordered.map(([id]) => id));
+        customEntries.forEach(([id, playlist]) => {
+            if (!included.has(id)) reordered.push([id, playlist]);
+        });
+        this.playlists = Object.fromEntries([...systemEntries, ...reordered]);
+        this.saveToStorage();
+        this.notifyChange();
     }
 
     addTrackToPlaylist(playlistId, trackId) {
