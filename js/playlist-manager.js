@@ -176,7 +176,7 @@ class CyberPlaylistManager {
      * Tauri mode: add tracks from real filesystem paths.
      * Uses convertFileSrc for stable URLs and persists filePath for reload.
      */
-    async addFilesFromPaths(paths) {
+    async addFilesFromPaths(paths, rippedMetadataByPath = new Map()) {
         const newTracks = [];
         const existingPaths = new Set(
             Array.from(this.tracks.values())
@@ -190,6 +190,7 @@ class CyberPlaylistManager {
                 continue; // Skip duplicate file
             }
             existingPaths.add(normPath);
+            const rippedMetadata = rippedMetadataByPath.get(normPath) || {};
 
             const url = window.__TAURI__.core.convertFileSrc(filePath);
 
@@ -233,12 +234,12 @@ class CyberPlaylistManager {
                 id,
                 filePath,
                 url,
-                title: metadata.title || fallbackTitle,
-                artist: metadata.artist || fallbackArtist,
-                album: metadata.album || 'Unknown Album',
-                year: metadata.year || '',
-                coverArt: metadata.coverArt || null,
-                duration,
+                title: rippedMetadata.title || metadata.title || fallbackTitle,
+                artist: rippedMetadata.artist || metadata.artist || fallbackArtist,
+                album: rippedMetadata.album || metadata.album || 'Unknown Album',
+                year: rippedMetadata.year || metadata.year || '',
+                coverArt: metadata.coverArt || rippedMetadata.coverArt || null,
+                duration: duration || Number(rippedMetadata.duration) || 0,
                 dateAdded: Date.now()
             };
 
