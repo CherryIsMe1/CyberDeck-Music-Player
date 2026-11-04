@@ -158,7 +158,7 @@ class CyberSampleGenerator {
             id: 'sample-' + Date.now() + '-' + Math.random(),
             title: type === 'chill' ? 'SNAKE NATION // NOMAD HIGHWAY' : 'NIGHT CITY // BRAINDANCE SYNTH',
             artist: 'SNAKE NATION // BADLANDS 2077',
-            album: 'CYBERDECK OST',
+            album: 'SNDECK OST',
             year: '2077',
             duration: duration,
             url: url,

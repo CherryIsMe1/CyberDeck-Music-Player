@@ -1,7 +1,7 @@
 {
-  "name": "cyberdeck-snake-nation",
+  "name": "sndeck-snake-nation",
   "version": "1.0.0",
-  "description": "Cyberpunk Snake Nation Nomad Audio Deck",
+  "description": "Snake Nation SNDeck audio player",
   "main": "www/index.html",
   "scripts": {
     "cap:sync": "npx cap sync android",

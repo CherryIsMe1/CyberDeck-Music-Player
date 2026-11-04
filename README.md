@@ -1,9 +1,7 @@
-# ⚡ CYBERDECK // SNAKE NATION [NOMAD AUDIO DECK]
-> Ultra-lightweight, cross-platform audio player & visualizer themed around **Snake nation** from *Cyberpunk: Edgerunners (Season 2)*.
+# ⚡ SNDECK // SNAKE NATION
+> Ultra-lightweight Windows audio player & visualizer themed around **Snake nation** from *Cyberpunk: Edgerunners (Season 2)*.
 
 [![Platform - Windows](https://img.shields.io/badge/Platform-Windows%2011-0088FF?style=for-the-badge&logo=windows)](https://github.com)
-[![Platform - Linux](https://img.shields.io/badge/Platform-Debian%20%2F%20Linux-A81D33?style=for-the-badge&logo=debian)](https://github.com)
-[![Platform - Android](https://img.shields.io/badge/Platform-Android%20APK-3DDC84?style=for-the-badge&logo=android)](https://github.com)
 [![Tech - Tauri 2.0](https://img.shields.io/badge/Engine-Tauri%202.0%20(Rust)-FFC135?style=for-the-badge&logo=rust)](https://tauri.app)
 [![Tech - Web Audio](https://img.shields.io/badge/Audio-Web%20Audio%20DSP-00FF88?style=for-the-badge)](https://developer.mozilla.org)
 
@@ -43,29 +41,27 @@
 
 ### 1. Download Pre-Built Binaries (GitHub Releases)
 Head over to the [**Releases**](https://github.com) section to download ready-to-run packages:
-* **Windows 11:** `Cyberdeck-Setup-1.0.0.exe` (or `.msi`)
-* **Linux Debian / Ubuntu:** `cyberdeck-player_1.0.0_amd64.deb`
-* **Android:** `cyberdeck-player-release.apk`
+* **Windows 11:** `SNDeck-Setup-1.0.0.exe` (or `.msi`)
 
 ### 2. Instant PWA Install (No Compilation Needed)
 1. Open the project in any Chromium-based browser (Chrome, Edge, Brave).
-2. Click **Install CYBERDECK** in the browser URL bar.
+2. Click **Install SNDECK** in the browser URL bar.
 3. The app installs as a native, borderless window with its own Taskbar / Desktop shortcut.
-4. On **Android**, tap `⋮ -> Install app` to run full-screen directly on your phone.
+4. Linux and Android builds are future targets; the current release workflow builds Windows only.
 
 ---
 
-## ⚡ STREAM RIPPER (SPOTIFY, YOUTUBE, SOUNDCLOUD)
+## ⚡ STREAM RIPPER (YOUTUBE)
 
 To download real 320 kbps MP3 files with complete ID3 tags and high-resolution cover art:
-1. Double-click **`Download_From_Spotify_and_YT.bat`** on Windows (or use the built-in desktop Tauri engine).
-2. Paste any **Spotify**, **YouTube**, or **SoundCloud** link.
-3. The track is downloaded at 320 kbps directly into `Downloaded_Music/`.
-4. Drag & drop the `.mp3` file onto the deck, or click **`+ ADD MP3 FILES`**!
+1. Open **RIPPER** in the Windows app.
+2. Paste a YouTube video or playlist URL. The Windows downloader downloads every item in a playlist into your `Music/SNDeck/` folder.
+3. The downloaded tracks are added to the selected playlist automatically.
+4. Spotify playlist URLs are not supported by the native downloader yet.
 
 ---
 
-## 🛠️ BUILDING FROM SOURCE (TAURI 2.0)
+## 🛠️ WINDOWS BUILD FROM SOURCE (TAURI 2.0)
 
 ### Prerequisites:
 * [Rust](https://rustup.rs/) (v1.75+)
@@ -75,11 +71,8 @@ To download real 320 kbps MP3 files with complete ID3 tags and high-resolution c
 # 1. Install Tauri CLI
 cargo install tauri-cli --version "^2.0"
 
-# 2. Build Desktop Binaries (Windows / Debian)
+# Build the current Windows desktop application
 cargo tauri build
-
-# 3. Build Android APK
-cargo tauri android build --apk
 ```
 
 ---

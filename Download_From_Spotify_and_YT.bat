@@ -1,10 +1,10 @@
 @echo off
-title CYBERDECK // SPOTIFY & YOUTUBE 320K MP3 RIPPER
+title SNDECK // YOUTUBE 320K MP3 RIPPER
 chcp 65001 >nul
 cls
 
 echo ======================================================================
-echo       CYBERDECK // NETRUNNER MP3 RIPPER (SPOTIFY, YT, SOUNDCLOUD)
+echo       SNDECK // YOUTUBE PLAYLIST RIPPER
 echo ======================================================================
 echo.
 echo [!] This script downloads full tracks at 320 kbps with cover art and ID3 tags.
@@ -31,7 +31,7 @@ if not exist "%YTDLP%" (
 
 :prompt_url
 echo ----------------------------------------------------------------------
-echo Paste a song / playlist link (Spotify, YouTube, SoundCloud):
+echo Paste a YouTube video or playlist link:
 echo (Right-click in the console window to paste)
 echo ----------------------------------------------------------------------
 set /p TARGET_URL=">> "
@@ -45,12 +45,12 @@ echo.
 echo [!] Starting download and conversion to 320 kbps MP3 with cover art...
 echo.
 
-"%YTDLP%" -x --audio-format mp3 --audio-quality 320K --add-metadata --embed-thumbnail -o "%OUTPUT_DIR%\%%(title)s.%%(ext)s" "%TARGET_URL%"
+"%YTDLP%" -x --audio-format mp3 --audio-quality 320K --add-metadata --embed-thumbnail -o "%OUTPUT_DIR%\%%(title)s [%%(id)s].%%(ext)s" "%TARGET_URL%"
 
 if %ERRORLEVEL% equ 0 (
     echo.
     echo ======================================================================
-    echo [SUCCESS] Track downloaded to folder:
+    echo [SUCCESS] Downloaded item(s) saved to folder:
     echo "%OUTPUT_DIR%"
     echo.
     echo You can now drag the downloaded MP3 file into the player!

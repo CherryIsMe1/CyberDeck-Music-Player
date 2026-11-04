@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/tooling/cli/schema.json",
-  "productName": "Cyberdeck Snake Nation",
+  "productName": "SNDeck",
   "version": "1.0.0",
   "identifier": "com.snakenation.cyberdeck",
   "build": {
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "CYBERDECK // SNAKE NATION [NOMAD DECK]",
+        "title": "SNDECK // SNAKE NATION",
         "width": 1240,
         "height": 840,
         "minWidth": 850,
@@ -40,7 +40,7 @@
       "icons/icon.ico"
     ],
     "category": "Music",
-    "shortDescription": "Cyberpunk Snake Nation Nomad Audio Deck",
-    "longDescription": "High-fidelity local MP3 music player & visualizer themed around Cyberpunk Edgerunners Snake Nation Nomad clan."
+    "shortDescription": "Snake Nation SNDeck audio player",
+    "longDescription": "Local audio player and visualizer inspired by Snake Nation."
   }
 }
