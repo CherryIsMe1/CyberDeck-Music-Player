@@ -399,6 +399,7 @@ async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -
     let mut results = Vec::new();
     for source_path in downloaded {
         let file_name = source_path.file_name().ok_or_else(|| "Downloaded audio file has no filename".to_string())?;
+        let info_path = source_path.with_extension("info.json");
         let destination = music_dir.join(file_name);
         if destination.exists() {
             std::fs::remove_file(&source_path)
@@ -407,8 +408,7 @@ async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -
             std::fs::rename(&source_path, &destination)
                 .map_err(|e| format!("Cannot move downloaded audio into SNDeck library: {}", e))?;
         }
-        let path = if destination.exists() { destination } else { source_path };
-        let info_path = source_path.with_extension("info.json");
+        let path = if destination.exists() { destination } else { source_path.clone() };
         let info = std::fs::read(&info_path)
             .ok()
             .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())

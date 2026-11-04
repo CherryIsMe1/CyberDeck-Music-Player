@@ -20,7 +20,7 @@ cargo install tauri-cli --version "^2.0"
 cargo tauri build
 ```
 
-The source version is `1.3.6`. The GitHub Actions workflow creates Windows installers from tags beginning with `v`, such as `v1.3.6`. Windows is the only packaged target at this time. The downloader provisions `yt-dlp` and Deno on first use and requires an internet connection.
+The source version is `1.3.7`. The GitHub Actions workflow creates Windows installers from tags beginning with `v`, such as `v1.3.7`. Windows is the only packaged target at this time. The downloader provisions `yt-dlp` and Deno on first use and requires an internet connection.
 
 The root frontend files are used for browser preview. Tauri packages the matching files in `www/`.
 
