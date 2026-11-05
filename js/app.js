@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnImportFiles: document.getElementById('btnImportFiles'),
         btnImportFolder: document.getElementById('btnImportFolder'),
         btnMobileImport: document.getElementById('btnMobileImport'),
+        btnMobileImportFolder: document.getElementById('btnMobileImportFolder'),
         dropZoneOverlay: document.getElementById('dropZoneOverlay'),
 
         // Player Controls
@@ -934,13 +935,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     elements.btnMobileImport.addEventListener('click', () => elements.btnImportFiles.click());
+    elements.btnMobileImportFolder.addEventListener('click', () => elements.btnImportFolder.click());
 
     elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
         if (isAndroidTauri) {
-            const originalLabel = elements.btnImportFolder.innerHTML;
-            elements.btnImportFolder.disabled = true;
-            elements.btnImportFolder.textContent = 'SCANNING FOLDER...';
+            const folderButtons = [elements.btnImportFolder, elements.btnMobileImportFolder];
+            const originalLabels = folderButtons.map(button => button.innerHTML);
+            folderButtons.forEach(button => {
+                button.disabled = true;
+                button.textContent = 'SCANNING...';
+            });
             try {
                 const result = await window.__TAURI__.core.invoke('import_audio_folder');
                 if (!result) return;
@@ -963,8 +968,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Android folder import failed:', err);
                 alert(`Could not import this folder: ${err.message || err}`);
             } finally {
-                elements.btnImportFolder.disabled = false;
-                elements.btnImportFolder.innerHTML = originalLabel;
+                folderButtons.forEach((button, index) => {
+                    button.disabled = false;
+                    button.innerHTML = originalLabels[index];
+                });
             }
             return;
         }

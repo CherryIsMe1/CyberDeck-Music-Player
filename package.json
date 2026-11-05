@@ -1,7 +1,7 @@
 {
   "name": "sndeck",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "private": true,
-  "description": "Windows music player",
+  "description": "Cross-platform music player",
   "main": "www/index.html"
 }

@@ -29,7 +29,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'SNDeck ${{ github.ref_name }}'
-          releaseBody: 'SNDeck downloads: Windows installers and an Android APK. The Android APK is debug-signed for sideload testing; a stable signing key is needed for production updates.'
+          releaseBody: 'SNDeck downloads: Windows installers, a Linux Debian package, and an Android APK. The Android APK is debug-signed for sideload testing; a stable signing key is needed for production updates.'
           releaseDraft: false
           prerelease: false
 
@@ -102,3 +102,55 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${GITHUB_REF_NAME}" SNDeck-android-arm64-debug.apk --clobber --repo "${GITHUB_REPOSITORY}"
+
+  build-linux:
+    name: Build Linux Debian package
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/v') && needs.build-windows.result == 'success'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Tauri Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils \
+            wget
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Build Debian package
+        run: cargo tauri build --bundles deb
+
+      - name: Name Debian package
+        run: |
+          deb_path="$(find src-tauri/target/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb_path"
+          cp "$deb_path" SNDeck-linux-amd64.deb
+
+      - name: Attach Debian package to the version release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" SNDeck-linux-amd64.deb --clobber --repo "${GITHUB_REPOSITORY}"
