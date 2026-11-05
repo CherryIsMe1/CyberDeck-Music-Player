@@ -1467,7 +1467,10 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     .header-actions::-webkit-scrollbar { display: none; }
     .header-actions > * { flex: 0 0 auto; }
 
-    .android-app .header-scroll-cue {
+    /* One obvious music import entry point on compact screens. */
+    .android-app #btnImportFiles { display: none; }
+
+    .header-scroll-cue {
         display: flex;
         grid-column: 1 / -1;
         grid-row: 3;
@@ -1494,7 +1497,7 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
 
     .android-app .mode-pills::-webkit-scrollbar { display: none; }
     .android-app .mode-pills .btn-mode-pill { flex: 0 0 auto; }
-    .android-app .modes-scroll-cue { display: flex; }
+    .modes-scroll-cue { display: flex; }
 
     .android-scroll-cue {
         align-items: center;
