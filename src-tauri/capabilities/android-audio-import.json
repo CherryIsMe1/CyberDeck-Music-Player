@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "android-audio-import",
+  "description": "Allow Android to copy user-selected audio into SNDeck app storage.",
+  "windows": ["*"],
+  "platforms": ["android"],
+  "permissions": [
+    "fs:allow-open",
+    "fs:allow-write",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-localdata-write-recursive"
+  ]
+}

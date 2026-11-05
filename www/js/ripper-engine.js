@@ -59,7 +59,8 @@ class CyberRipperEngine {
 
             // -- TAURI NATIVE PATH --------------------------------------------
             const isTauri = typeof window.__TAURI__ !== 'undefined';
-            if (isTauri) {
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            if (isTauri && !isAndroid) {
                 this.log('NATIVE YT-DLP ENGINE DETECTED - USING SYSTEM RIPPER...', 'system');
                 this.log('PREPARING NATIVE RIPPER...', 'info');
                 this.setProgress(10);

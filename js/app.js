@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         folderInput: document.getElementById('folderInput'),
         btnImportFiles: document.getElementById('btnImportFiles'),
         btnImportFolder: document.getElementById('btnImportFolder'),
+        btnMobileImport: document.getElementById('btnMobileImport'),
         dropZoneOverlay: document.getElementById('dropZoneOverlay'),
 
         // Player Controls
@@ -896,9 +897,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // IMPORT FILES & FOLDERS
     // =========================================================================
     const isTauri = typeof window.__TAURI__ !== 'undefined';
+    const isAndroidTauri = isTauri && /Android/i.test(navigator.userAgent);
+    if (isAndroidTauri) elements.btnImportFolder.hidden = true;
 
     elements.btnImportFiles.addEventListener('click', async () => {
         window.CyberSound.playClick();
+        if (isAndroidTauri) {
+            elements.fileInput.click();
+            return;
+        }
         if (isTauri) {
             try {
                 const paths = await window.__TAURI__.dialog.open({
@@ -922,6 +929,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.fileInput.click();
         }
     });
+
+    elements.btnMobileImport.addEventListener('click', () => elements.btnImportFiles.click());
 
     elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
@@ -953,8 +962,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.fileInput.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files.length > 0) {
-            await handleAddedFiles(e.target.files);
+            try {
+                await handleAddedFiles(e.target.files);
+            } catch (error) {
+                console.error('Audio import failed:', error);
+                alert(`Could not import audio: ${error.message || error}`);
+            }
         }
+        e.target.value = '';
     });
 
     elements.folderInput.addEventListener('change', async (e) => {
@@ -964,13 +979,77 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function handleAddedFiles(fileList) {
-        const added = await window.PlaylistManager.addFiles(fileList);
+        let added;
+        if (isAndroidTauri) {
+            const imported = await persistAndroidAudioFiles(fileList);
+            const metadataByPath = new Map(imported.map(item => [
+                item.path.toLowerCase().replace(/\\/g, '/'),
+                { title: item.title }
+            ]));
+            added = await window.PlaylistManager.addFilesFromPaths(imported.map(item => item.path), metadataByPath);
+        } else {
+            added = await window.PlaylistManager.addFiles(fileList);
+        }
         window.CyberSound.playSuccess();
         renderPlaylists();
         renderTracks();
         if (!window.PlaylistManager.currentTrackId && added.length > 0) {
             playTrack(added[0]);
         }
+    }
+
+    async function persistAndroidAudioFiles(fileList) {
+        const fs = window.__TAURI__.fs;
+        const path = window.__TAURI__.path;
+        if (!fs || !path || typeof fs.open !== 'function' || !fs.BaseDirectory || typeof path.appLocalDataDir !== 'function') {
+            throw new Error('Android storage support is unavailable in this build.');
+        }
+        const baseDir = fs.BaseDirectory.AppLocalData;
+        const audioDir = 'audio';
+        await fs.mkdir(audioDir, { baseDir, recursive: true });
+        const absoluteAudioDir = await path.join(await path.appLocalDataDir(), audioDir);
+        const storedPaths = [];
+
+        for (const file of fileList) {
+            if (!file.name.toLowerCase().endsWith('.mp3') && !file.type.startsWith('audio/')) continue;
+            const safeName = file.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(-120) || 'audio';
+            const uniqueId = typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const relativePath = `${audioDir}/${uniqueId}-${safeName}`;
+            const output = await fs.open(relativePath, {
+                write: true,
+                create: true,
+                truncate: true,
+                baseDir
+            });
+            try {
+                if (typeof file.stream === 'function') {
+                    const reader = file.stream().getReader();
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            await output.write(value);
+                        }
+                    } finally {
+                        reader.releaseLock();
+                    }
+                } else {
+                    await output.write(new Uint8Array(await file.arrayBuffer()));
+                }
+            } catch (error) {
+                try { await fs.remove(relativePath, { baseDir }); } catch (_) {}
+                throw error;
+            } finally {
+                await output.close();
+            }
+            storedPaths.push({
+                path: await path.join(absoluteAudioDir, `${uniqueId}-${safeName}`),
+                title: file.name.replace(/\.[^.]+$/, '')
+            });
+        }
+        return storedPaths;
     }
 
 
