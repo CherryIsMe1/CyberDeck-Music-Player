@@ -36,7 +36,7 @@ cargo install tauri-cli --version "^2.0"
 cargo tauri build
 ```
 
-The source version is `1.6.9`. Pushing a version tag beginning with `v` starts one GitHub Actions release workflow; it builds Windows installers, an Android APK with the SNDeck launcher icon, and a Linux `.deb` from the same commit and attaches all three to the release. Ordinary pushes to `main` do not start a release build. Linux preset and sort menus use an SNDeck-styled popup instead of WebKitGTK's system-colored list. The Android APK is debug-signed for sideload testing. Add a persistent Android signing key in GitHub Actions secrets before using it for production distribution or seamless app updates.
+The source version is `1.7.0`. Pushing a version tag beginning with `v` starts one GitHub Actions release workflow; it builds Windows installers, an Android APK with the SNDeck launcher icon, and a Linux `.deb` from the same commit and attaches all three to the release. Ordinary pushes to `main` do not start a release build. Linux preset and sort menus use an SNDeck-styled popup instead of WebKitGTK's system-colored list. The Android APK is debug-signed for sideload testing. Add a persistent Android signing key in GitHub Actions secrets before using it for production distribution or seamless app updates.
 
 ## Linux build
 
