@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sndeck-v20';
+const CACHE_NAME = 'sndeck-v21';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS_TO_CACHE = [
   './js/playlist-manager.js',
   './js/visualizer.js',
   './js/ripper-engine.js',
+  './js/linux-selects.js',
   './js/app.js',
   './assets/cyber_vinyl.svg'
 ];
