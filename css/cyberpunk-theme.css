@@ -1470,6 +1470,8 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
 
     /* One obvious music import entry point on compact screens. */
     .android-app #btnImportFiles { display: none; }
+    .android-app #btnImportFolder,
+    .android-app #btnOpenRipper { display: none !important; }
 
     .android-app .android-tools-note {
         display: flex;
