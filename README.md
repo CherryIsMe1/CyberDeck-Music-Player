@@ -46,6 +46,7 @@ The `.deb` release is built on Ubuntu 22.04 to support Debian-based systems with
 cargo install tauri-cli --version "^2.0"
 cargo tauri build --bundles deb
 ```
+note: My linux laptop is acting weird lately, especially internet connection, so testing this version is difficult. Do expect bugs.
 
 ## Platform features
 
