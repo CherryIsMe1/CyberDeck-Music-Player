@@ -99,12 +99,12 @@ jobs:
         run: |
           apk_path="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
           test -n "$apk_path"
-          cp "$apk_path" SNDeck-android-arm64-debug.apk
+          cp "$apk_path" SNDeck-android-arm64.apk
 
       - name: Attach APK to the version release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${GITHUB_REF_NAME}" SNDeck-android-arm64-debug.apk --clobber --repo "${GITHUB_REPOSITORY}"
+        run: gh release upload "${GITHUB_REF_NAME}" SNDeck-android-arm64.apk --clobber --repo "${GITHUB_REPOSITORY}"
 
   build-linux:
     name: Build Linux Debian package

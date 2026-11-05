@@ -1,6 +1,6 @@
 [package]
 name = "sndeck-player"
-version = "1.6.8"
+version = "1.6.9"
 description = "Snake Nation SNDeck audio player"
 authors = ["SNDeck"]
 edition = "2021"
