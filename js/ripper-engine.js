@@ -10,21 +10,20 @@ class CyberRipperEngine {
         this.onProgressUpdate = null;
 
         // Resilient public gateways for YouTube audio resolution
+        // Curated from the projects' current public instance lists. These can
+        // still go offline, so every request is bounded and retried in parallel.
         this.pipedInstances = [
-            'https://pipedapi.kavin.rocks',
-            'https://api.piped.privacydev.net',
             'https://pipedapi.leptons.xyz',
-            'https://pipedapi.drgns.space',
-            'https://pipedapi.tokhmi.xyz',
-            'https://pipedapi.moomoo.me'
+            'https://piped-api.privacy.com.de',
+            'https://pipedapi.adminforge.de',
+            'https://api.piped.yt',
+            'https://pipedapi.kavin.rocks'
         ];
 
         this.invidiousInstances = [
             'https://inv.nadeko.net',
-            'https://invidious.jing.rocks',
-            'https://yewtu.be',
-            'https://invidious.privacydev.net',
-            'https://iv.datura.network'
+            'https://invidious.tiekoetter.com',
+            'https://invidious.nerdvpn.de'
         ];
     }
 
@@ -39,6 +38,34 @@ class CyberRipperEngine {
     setProgress(percent) {
         if (this.onProgressUpdate) {
             this.onProgressUpdate(Math.min(100, Math.max(0, percent)));
+        }
+    }
+
+    async fetchJsonWithTimeout(url, options = {}, timeoutMs = 5500) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            if (!response.ok) throw new Error(`Gateway returned HTTP ${response.status}`);
+            return await response.json();
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    async firstGatewayResult(instances, message, makeUrl, parse, options = {}) {
+        const attempts = instances.map(async (base) => {
+            this.log(`${message}: ${new URL(base).hostname}...`, 'info');
+            const data = await this.fetchJsonWithTimeout(makeUrl(base), options);
+            const result = parse(data);
+            if (!result) throw new Error('Gateway returned no usable result');
+            return result;
+        });
+
+        try {
+            return await Promise.any(attempts);
+        } catch (_) {
+            return null;
         }
     }
 
@@ -101,15 +128,12 @@ class CyberRipperEngine {
 
                 try {
                     const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(input)}`;
-                    const res = await fetch(oembedUrl);
-                    if (res.ok) {
-                        const data = await res.json();
-                        initialTitle = data.title;
-                        initialCover = data.thumbnail_url;
-                        this.log(`SPOTIFY TRACK: "${initialTitle}"`, 'success');
-                    }
+                    const data = await this.fetchJsonWithTimeout(oembedUrl, {}, 5500);
+                    initialTitle = data.title;
+                    initialCover = data.thumbnail_url;
+                    this.log(`SPOTIFY TRACK: "${initialTitle}"`, 'success');
                 } catch (e) {
-                    this.log('SPOTIFY OEMBED TIMEOUT. SEARCHING HEURISTICALLY...', 'warn');
+                    this.log('SPOTIFY METADATA UNAVAILABLE. SEARCHING BY LINK...', 'warn');
                 }
 
                 this.log('BRIDGING SPOTIFY TRACK TO YOUTUBE AUDIO STREAM...', 'info');
@@ -197,158 +221,83 @@ class CyberRipperEngine {
      * Searches YouTube for a matching track and returns the top videoId.
      */
     async searchYouTubeVideoId(query) {
-        for (const base of this.pipedInstances) {
-            try {
-                const searchUrl = `${base}/search?q=${encodeURIComponent(query)}&filter=all`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-                const res = await fetch(searchUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const items = data.items || data;
-                    if (items && items.length > 0) {
-                        for (const item of items) {
-                            if (item.url && item.url.includes('/watch?v=')) {
-                                return this.extractYouTubeId(item.url);
-                            }
-                        }
+        const encodedQuery = encodeURIComponent(query);
+        const pipedId = await this.firstGatewayResult(
+            this.pipedInstances,
+            'SEARCHING PIPED',
+            base => `${base}/search?q=${encodedQuery}&filter=all`,
+            data => {
+                const items = Array.isArray(data) ? data : data.items;
+                if (!Array.isArray(items)) return null;
+                for (const item of items) {
+                    if (item && item.url) {
+                        const id = this.extractYouTubeId(item.url) || item.url.match(/[?&]v=([\w-]{11})/)?.[1];
+                        if (id) return id;
                     }
+                    if (item && item.videoId && /^[\w-]{11}$/.test(item.videoId)) return item.videoId;
                 }
-            } catch (err) {
-                // Try next instance
+                return null;
             }
-        }
+        );
+        if (pipedId) return pipedId;
 
-        // Secondary fallback: Invidious search
-        for (const base of this.invidiousInstances) {
-            try {
-                const searchUrl = `${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-                const res = await fetch(searchUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.length > 0 && data[0].videoId) {
-                        return data[0].videoId;
-                    }
-                }
-            } catch (err) {
-                // Try next
-            }
-        }
-
-        return null;
+        return this.firstGatewayResult(
+            this.invidiousInstances,
+            'SEARCHING INVIDIOUS',
+            base => `${base}/api/v1/search?q=${encodedQuery}&type=video`,
+            data => Array.isArray(data) && data[0] && /^[\w-]{11}$/.test(data[0].videoId || '')
+                ? data[0].videoId
+                : null
+        );
     }
 
     /**
      * Queries stream gateways to obtain a direct, playable audio stream URL.
      */
     async extractAudioStreamFromGateways(videoId) {
-        // Try Piped instances first
-        for (const base of this.pipedInstances) {
-            try {
-                this.log(`QUERYING GATEWAY: ${new URL(base).hostname}...`, 'info');
-                const streamUrl = `${base}/streams/${videoId}`;
-
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-                const res = await fetch(streamUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.audioStreams && data.audioStreams.length > 0) {
-                        // Pick best bitrate audio stream (m4a or webm/opus)
-                        const streams = [...data.audioStreams].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-                        const chosen = streams[0];
-
-                        return {
-                            audioUrl: chosen.url,
-                            title: data.title || 'YouTube Audio',
-                            uploader: data.uploader || 'YouTube Artist',
-                            duration: data.duration || 180,
-                            thumbnail: data.thumbnailUrl
-                        };
-                    }
-                }
-            } catch (err) {
-                // Continue to next gateway
+        const pipedResult = await this.firstGatewayResult(
+            this.pipedInstances,
+            'QUERYING PIPED GATEWAY',
+            base => `${base}/streams/${videoId}`,
+            data => {
+                if (!Array.isArray(data.audioStreams) || data.audioStreams.length === 0) return null;
+                const streams = data.audioStreams.filter(stream => stream && stream.url)
+                    .sort((a, b) => (Number(b.bitrate) || 0) - (Number(a.bitrate) || 0));
+                const chosen = streams[0];
+                if (!chosen) return null;
+                return {
+                    audioUrl: chosen.url,
+                    title: data.title || 'YouTube Audio',
+                    uploader: data.uploader || 'YouTube Artist',
+                    duration: data.duration || 180,
+                    thumbnail: data.thumbnailUrl
+                };
             }
-        }
+        );
+        if (pipedResult) return pipedResult;
 
-        // Try Invidious instances
-        for (const base of this.invidiousInstances) {
-            try {
-                this.log(`QUERYING BACKUP GATEWAY: ${new URL(base).hostname}...`, 'info');
-                const streamUrl = `${base}/api/v1/videos/${videoId}`;
-
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-                const res = await fetch(streamUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.adaptiveFormats) {
-                        const audioOnly = data.adaptiveFormats.filter(f => f.type && f.type.startsWith('audio/'));
-                        if (audioOnly.length > 0) {
-                            audioOnly.sort((a, b) => (parseInt(b.bitrate, 10) || 0) - (parseInt(a.bitrate, 10) || 0));
-                            return {
-                                audioUrl: audioOnly[0].url,
-                                title: data.title || 'YouTube Audio',
-                                uploader: data.author || 'YouTube Artist',
-                                duration: data.lengthSeconds || 180,
-                                thumbnail: data.videoThumbnails ? data.videoThumbnails[0]?.url : null
-                            };
-                        }
-                    }
-                }
-            } catch (err) {
-                // Continue
+        const invidiousResult = await this.firstGatewayResult(
+            this.invidiousInstances,
+            'QUERYING INVIDIOUS BACKUP',
+            base => `${base}/api/v1/videos/${videoId}`,
+            data => {
+                if (!Array.isArray(data.adaptiveFormats)) return null;
+                const audioOnly = data.adaptiveFormats.filter(format =>
+                    format && format.type && format.type.startsWith('audio/') && format.url
+                ).sort((a, b) => (parseInt(b.bitrate, 10) || 0) - (parseInt(a.bitrate, 10) || 0));
+                if (!audioOnly.length) return null;
+                return {
+                    audioUrl: audioOnly[0].url,
+                    title: data.title || 'YouTube Audio',
+                    uploader: data.author || 'YouTube Artist',
+                    duration: data.lengthSeconds || 180,
+                    thumbnail: data.videoThumbnails ? data.videoThumbnails[0]?.url : null
+                };
             }
-        }
+        );
+        if (invidiousResult) return invidiousResult;
 
-        // Tertiary fallback: Cobalt API
-        try {
-            this.log('QUERYING COBALT PROXY GATEWAY...', 'info');
-            const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    url: `https://www.youtube.com/watch?v=${videoId}`,
-                    downloadMode: 'audio',
-                    audioFormat: 'mp3'
-                })
-            });
-
-            if (cobaltRes.ok) {
-                const cobaltData = await cobaltRes.json();
-                if (cobaltData.url) {
-                    return {
-                        audioUrl: cobaltData.url,
-                        title: 'YouTube Stream',
-                        uploader: 'Cobalt Gateway',
-                        duration: 180,
-                        thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                    };
-                }
-            }
-        } catch (e) {
-            // Cobalt fallback failed
-        }
-
-        throw new Error('All stream gateways are currently unreachable.\n\nThis ripper uses public YouTube proxy APIs that can go down.\nTry again in a few minutes, or use the Download_From_Spotify_and_YT.bat script for guaranteed 320kbps downloads.');
+        throw new Error('Public audio gateways did not return a playable stream. Check your connection and retry, or import the audio file directly.');
     }
 
     sleep(ms) {

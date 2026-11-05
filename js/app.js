@@ -898,7 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     const isTauri = typeof window.__TAURI__ !== 'undefined';
     const isAndroidTauri = isTauri && /Android/i.test(navigator.userAgent);
-    if (isAndroidTauri) elements.btnImportFolder.hidden = true;
+    if (isAndroidTauri) document.body.classList.add('android-app');
 
     elements.btnImportFiles.addEventListener('click', async () => {
         window.CyberSound.playClick();
@@ -934,6 +934,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
+        if (isAndroidTauri) {
+            elements.folderInput.click();
+            return;
+        }
         if (isTauri) {
             try {
                 const folder = await window.__TAURI__.dialog.open({
@@ -973,8 +977,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     elements.folderInput.addEventListener('change', async (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-            await handleAddedFiles(e.target.files);
+        try {
+            if (e.target.files && e.target.files.length > 0) {
+                await handleAddedFiles(e.target.files);
+            }
+        } catch (error) {
+            console.error('Folder audio import failed:', error);
+            alert(`Could not import folder audio: ${error.message || error}`);
+        } finally {
+            e.target.value = '';
         }
     });
 
@@ -1009,9 +1020,11 @@ document.addEventListener('DOMContentLoaded', () => {
         await fs.mkdir(audioDir, { baseDir, recursive: true });
         const absoluteAudioDir = await path.join(await path.appLocalDataDir(), audioDir);
         const storedPaths = [];
+        const audioExtensions = ['.mp3', '.m4a', '.flac', '.wav', '.ogg', '.aac', '.webm', '.opus'];
 
         for (const file of fileList) {
-            if (!file.name.toLowerCase().endsWith('.mp3') && !file.type.startsWith('audio/')) continue;
+            const lowerName = file.name.toLowerCase();
+            if (!file.type.startsWith('audio/') && !audioExtensions.some(extension => lowerName.endsWith(extension))) continue;
             const safeName = file.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(-120) || 'audio';
             const uniqueId = typeof crypto.randomUUID === 'function'
                 ? crypto.randomUUID()

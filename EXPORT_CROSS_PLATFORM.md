@@ -6,11 +6,11 @@ See [README.md](README.md) for Windows build, release, and downloader details.
 
 ## Android build
 
-The Android port adds a portrait-first mobile layout, touch-sized controls, a quick add-music action, and multi-file import into app-private storage. It also moves the Tauri entry point into a library so the Android host can call it. The Android folder picker is hidden because Tauri's Android dialog does not support directory selection; use multi-select to add a batch of tracks.
+The Android port adds a portrait-first mobile layout, touch-sized controls, a quick add-music action, and audio import into app-private storage. The Android folder button uses the WebView directory input instead of Tauri's unsupported mobile folder dialog; folder selection depends on the Android System WebView version and should be checked on-device.
 
 Pushing to `main` or manually starting **SNDeck Android Build** in the Actions tab builds an arm64 debug APK and uploads it as the `SNDeck-android-arm64-debug` artifact for 14 days. For a tagged release (`v*`), the cross-platform release workflow builds the Windows installers and attaches the same kind of Android APK to that GitHub Release. The release APK is debug-signed for sideload testing; production releases and seamless upgrades need a persistent Android signing key configured as GitHub secrets. Tauri requires APKs to be signed before distribution ([Android signing guide](https://v2.tauri.app/distribute/sign/android/)).
 
-The Android ripper uses the in-app stream resolver rather than the Windows `yt-dlp`/Deno pipeline, and background playback needs native Android verification before claiming full feature parity.
+The Android ripper uses short, parallel requests to current Piped/Invidious public instances, rather than the Windows `yt-dlp`/Deno pipeline. Public instances can still be unavailable, and background playback needs native Android verification before claiming full feature parity.
 
 After installing the Android prerequisites from the [Tauri setup guide](https://v2.tauri.app/start/prerequisites/), initialize and run the Android host with:
 
