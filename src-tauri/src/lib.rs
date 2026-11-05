@@ -175,15 +175,31 @@ async fn get_or_download_deno() -> Result<PathBuf, String> {
     let zip_string = zip_path.to_string_lossy().to_string();
     let directory_string = local_dir.to_string_lossy().to_string();
     let extract_status = tokio::task::spawn_blocking(move || {
-        std::process::Command::new("unzip")
+        let unzip_status = std::process::Command::new("unzip")
             .args(["-o", "-q", &zip_string, "-d", &directory_string])
-            .status()
+            .status();
+        match unzip_status {
+            Ok(status) if status.success() => Ok(()),
+            _ => {
+                // Fallback: try python3 -m zipfile
+                std::process::Command::new("python3")
+                    .args(["-m", "zipfile", "-e", &zip_string, &directory_string])
+                    .status()
+                    .map_err(|error| format!("Could not start unzip or python3 to install Deno: {error}"))
+                    .and_then(|status| {
+                        if status.success() {
+                            Ok(())
+                        } else {
+                            Err("Extraction process returned a non-zero exit code".to_string())
+                        }
+                    })
+            }
+        }
     })
     .await
-    .map_err(|error| format!("Deno extraction task failed: {error}"))?
-    .map_err(|error| format!("Could not start unzip to install Deno: {error}"))?;
+    .map_err(|error| format!("Deno extraction task failed: {error}"))?;
     let _ = std::fs::remove_file(&zip_path);
-    if !extract_status.success() || !deno_path.exists() {
+    if extract_status.is_err() || !deno_path.exists() {
         return Err("Could not extract Deno automatically. Install unzip or Deno 2.3+ manually, then retry.".to_string());
     }
 
@@ -552,9 +568,17 @@ async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -
     let youtube_url = normalized_url.contains("youtube.com") || normalized_url.contains("youtu.be");
     let js_runtime = if youtube_url {
         emit_ripper_status(&app, "Checking YouTube JavaScript runtime...", "info", 15);
-        let runtime = get_or_download_deno().await?;
-        emit_ripper_status(&app, "JavaScript runtime ready.", "success", 25);
-        Some(runtime)
+        match get_or_download_deno().await {
+            Ok(runtime) => {
+                emit_ripper_status(&app, "JavaScript runtime ready.", "success", 25);
+                Some(runtime)
+            }
+            Err(e) => {
+                eprintln!("[SNDeck] JavaScript runtime unavailable ({e}) - continuing with native yt-dlp extractor");
+                emit_ripper_status(&app, "Running with native audio extractor...", "info", 25);
+                None
+            }
+        }
     } else {
         None
     };

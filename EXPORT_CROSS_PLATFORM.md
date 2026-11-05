@@ -26,4 +26,4 @@ Build an APK locally with:
 cargo tauri android build --apk
 ```
 
-Create a release from a version tag (for example `v1.6.6`). The release workflow attaches Windows installers, the Android APK, and `SNDeck-linux-amd64.deb` to that one release.
+Create a release from a version tag (for example `v1.6.7`). The release workflow attaches Windows installers, the Android APK, and `SNDeck-linux-amd64.deb` to that one release.

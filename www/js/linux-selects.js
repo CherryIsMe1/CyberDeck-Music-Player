@@ -8,16 +8,16 @@
         if (!isLinuxTauri) return;
 
         document.body.classList.add('linux-app');
-        ['presetSelect', 'sortSelect'].forEach((id) => {
+        ['themeSelect', 'presetSelect', 'sortSelect'].forEach((id) => {
             enhanceLinuxSelect(document.getElementById(id));
         });
     });
 
     function enhanceLinuxSelect(select) {
-        if (!select || select.options.length === 0 || select.dataset.linuxSelectEnhanced) return;
+        if (!select || select.dataset.linuxSelectEnhanced) return;
 
         const wrapper = document.createElement('div');
-        const variant = select.id === 'presetSelect' ? 'preset' : 'sort';
+        const variant = select.id === 'presetSelect' ? 'preset' : (select.id === 'themeSelect' ? 'theme' : 'sort');
         wrapper.className = `linux-select linux-select--${variant}`;
 
         const trigger = document.createElement('button');
@@ -25,13 +25,13 @@
         trigger.className = 'linux-select-trigger';
         trigger.setAttribute('aria-haspopup', 'listbox');
         trigger.setAttribute('aria-expanded', 'false');
-        trigger.setAttribute('aria-label', variant === 'preset' ? 'Equalizer preset' : 'Sort tracks');
+        trigger.setAttribute('aria-label', variant === 'preset' ? 'Equalizer preset' : (variant === 'theme' ? 'Select theme' : 'Sort tracks'));
 
         const menu = document.createElement('div');
         menu.id = `linux-${select.id}-listbox`;
-        menu.className = 'linux-select-menu';
+        menu.className = `linux-select-menu linux-select-menu--${variant}`;
         menu.setAttribute('role', 'listbox');
-        menu.setAttribute('aria-label', variant === 'preset' ? 'Equalizer presets' : 'Sort tracks by');
+        menu.setAttribute('aria-label', variant === 'preset' ? 'Equalizer presets' : (variant === 'theme' ? 'Available themes' : 'Sort tracks by'));
         menu.hidden = true;
         trigger.setAttribute('aria-controls', menu.id);
 
@@ -45,27 +45,41 @@
         select.setAttribute('aria-hidden', 'true');
         select.tabIndex = -1;
 
-        const optionButtons = Array.from(select.options, (option, index) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'linux-select-option';
-            button.setAttribute('role', 'option');
-            button.dataset.optionIndex = String(index);
-            button.textContent = option.textContent.trim();
-            button.disabled = option.disabled;
-            button.tabIndex = -1;
-            menu.appendChild(button);
+        let optionButtons = [];
 
-            button.addEventListener('click', () => {
-                if (button.disabled) return;
-                const changed = select.value !== option.value;
-                select.value = option.value;
-                syncSelection();
-                closeMenu(true);
-                if (changed) select.dispatchEvent(new Event('change', { bubbles: true }));
+        function rebuildOptions() {
+            menu.replaceChildren();
+            optionButtons = Array.from(select.options, (option, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'linux-select-option';
+                button.setAttribute('role', 'option');
+                button.dataset.optionIndex = String(index);
+                button.textContent = option.textContent.trim();
+                button.disabled = option.disabled;
+                button.tabIndex = -1;
+                menu.appendChild(button);
+
+                button.addEventListener('click', () => {
+                    if (button.disabled) return;
+                    const changed = select.value !== option.value;
+                    select.value = option.value;
+                    syncSelection();
+                    closeMenu(true);
+                    if (changed) select.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                return button;
             });
-            return button;
+        }
+
+        rebuildOptions();
+
+        // Observe dynamic options additions/deletions (e.g. custom themes)
+        const observer = new MutationObserver(() => {
+            rebuildOptions();
+            syncSelection();
         });
+        observer.observe(select, { childList: true });
 
         function syncSelection() {
             const selectedOption = select.options[select.selectedIndex];
@@ -94,25 +108,30 @@
 
         function positionMenu() {
             const bounds = trigger.getBoundingClientRect();
-            const maxHeight = Math.max(120, Math.min(260, window.innerHeight - 16));
+            const maxHeight = Math.max(140, Math.min(300, window.innerHeight - 24));
             menu.style.maxHeight = `${maxHeight}px`;
 
-            const width = Math.min(Math.max(bounds.width, variant === 'sort' ? 190 : 0), window.innerWidth - 16);
+            const minWidth = variant === 'sort' ? 200 : (variant === 'preset' ? 175 : 110);
+            menu.style.width = 'auto';
+            const naturalWidth = menu.scrollWidth + 14;
+            const width = Math.min(Math.max(bounds.width, minWidth, naturalWidth), window.innerWidth - 16);
+
+            const alignRight = variant === 'sort' || variant === 'preset' || variant === 'theme';
             const left = Math.max(8, Math.min(
-                variant === 'sort' ? bounds.right - width : bounds.left,
+                alignRight ? bounds.right - width : bounds.left,
                 window.innerWidth - width - 8
             ));
+
             const height = Math.min(menu.scrollHeight, maxHeight);
-            const canOpenAbove = variant === 'preset'
-                && window.innerHeight - bounds.bottom < height + 8
+            const canOpenAbove = (variant === 'preset' || bounds.bottom + height > window.innerHeight - 8)
                 && bounds.top > height + 8;
             const top = canOpenAbove
                 ? bounds.top - height - 4
                 : Math.max(8, Math.min(bounds.bottom + 4, window.innerHeight - height - 8));
 
-            menu.style.left = `${left}px`;
-            menu.style.top = `${top}px`;
-            menu.style.width = `${width}px`;
+            menu.style.left = `${Math.round(left)}px`;
+            menu.style.top = `${Math.round(top)}px`;
+            menu.style.width = `${Math.round(width)}px`;
         }
 
         function closeMenu(restoreFocus) {
