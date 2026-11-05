@@ -36,7 +36,7 @@ cargo install tauri-cli --version "^2.0"
 cargo tauri build
 ```
 
-The source version is `1.5.9`. GitHub Actions builds Windows installers and an Android APK for version tags beginning with `v`; both are attached to the same release. The Android release APK is debug-signed for sideload testing. Add a persistent Android signing key in GitHub Actions secrets before using it for production distribution or seamless app updates. A Linux `.deb` package can be added to the same release workflow later.
+The source version is `1.6.0`. Pushing a version tag beginning with `v` starts one GitHub Actions release workflow; it builds Windows installers and an Android APK from the same commit and attaches both to the release. Ordinary pushes to `main` do not start a second build. The Android APK is debug-signed for sideload testing. Add a persistent Android signing key in GitHub Actions secrets before using it for production distribution or seamless app updates. A Linux `.deb` package can be added to the same release workflow later.
 
 ## Platform features
 

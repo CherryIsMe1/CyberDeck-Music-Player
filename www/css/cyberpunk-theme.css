@@ -1607,6 +1607,9 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     .track-row-duration { min-width: 34px; text-align: right; }
     .btn-track-action { min-width: 38px; min-height: 40px; padding: 4px; }
     .btn-track-action span { display: none; }
+    .btn-track-add-playlist { min-width: 40px; width: 40px; color: var(--omi-blue); font-size: 18px; }
+    .btn-track-add-playlist span:first-child { display: inline !important; }
+    .btn-track-add-playlist:hover { color: var(--omi-green); }
 
     .eq-panel { flex-wrap: wrap; justify-content: center; gap: 10px; padding: 12px; }
     .eq-panel > div:first-child { flex: 1 1 100%; text-align: center; }

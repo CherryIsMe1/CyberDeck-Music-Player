@@ -1507,10 +1507,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Add to Playlist Button
             const addPlBtn = document.createElement('button');
-            addPlBtn.className = 'btn-track-action';
+            addPlBtn.type = 'button';
+            addPlBtn.className = 'btn-track-action btn-track-add-playlist';
             const canMoveTrack = activePlaylist && !activePlaylist.system && activePlaylist.trackIds.includes(track.id);
             addPlBtn.innerHTML = canMoveTrack ? `<span>→</span> <span>PL</span>` : `<span>+</span> <span>PL</span>`;
             addPlBtn.setAttribute('title', canMoveTrack ? 'Move to another playlist' : 'Add to Playlist');
+            addPlBtn.setAttribute('aria-label', canMoveTrack ? 'Move to another playlist' : 'Add to Playlist');
             addPlBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 promptAddToPlaylist(track);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sndeck-v16';
+const CACHE_NAME = 'sndeck-v17';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -6,7 +6,6 @@ const ASSETS_TO_CACHE = [
   './css/cyberpunk-theme.css',
   './js/id3-parser.js',
   './js/sound-effects.js',
-  './js/sample-tracks.js',
   './js/audio-engine.js',
   './js/playlist-manager.js',
   './js/visualizer.js',
