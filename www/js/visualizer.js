@@ -10,7 +10,7 @@ class CyberVisualizer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.mode = 'gorilla-bars'; // 'basic' | 'ring-wave' | 'gorilla-bars' | 'nomad-laser' | 'badlands-3d'
+        this.mode = 'gorilla-bars'; // 'basic' | 'ring-wave' | 'gorilla-bars' | 'waveform' | 'badlands-3d'
         this.isRunning = false;
         this.peakLevels = [];
         this.peakDecay = 1.4;
@@ -164,15 +164,12 @@ class CyberVisualizer {
                 this.drawRingWave(timeData, w, h);
                 break;
             case 'gorilla-bars':
-            case 'cyber-bars':
                 this.drawGorillaBars(freqData, w, h);
                 break;
-            case 'nomad-laser':
-            case 'oscilloscope':
-                this.drawNomadLaser(timeData, w, h);
+            case 'waveform':
+                this.drawWaveform(timeData, w, h);
                 break;
             case 'badlands-3d':
-            case 'cyber-grid':
                 this.drawBadlands3D(freqData, w, h);
                 break;
         }
@@ -306,7 +303,7 @@ class CyberVisualizer {
     /**
      * Mode 3: Waveform (Oscilloscope)
      */
-    drawNomadLaser(timeData, w, h) {
+    drawWaveform(timeData, w, h) {
         const cy = h / 2;
         const sliceWidth = w / (timeData.length || 1);
 

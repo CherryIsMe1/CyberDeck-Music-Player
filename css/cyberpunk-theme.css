@@ -275,6 +275,16 @@ body::before {
 .theme-delete-button[hidden] { display: none; }
 .theme-create-button { min-width: 28px; padding-left: 7px; padding-right: 7px; font-size: 14px; }
 
+/* WebKitGTK can otherwise draw select popups with bright system-theme colors. */
+select {
+    color-scheme: dark;
+}
+
+select option {
+    background-color: #0B101A;
+    color: #F2F7FF;
+}
+
 .btn-cyber-icon {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(var(--omi-green-rgb), 0.25);
@@ -780,6 +790,7 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     font-size: 11px;
     padding: 4px 8px;
     cursor: pointer;
+    color-scheme: dark;
 }
 
 /* ==========================================================================
@@ -849,6 +860,7 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     font-size: 11px;
     padding: 3px 6px;
     cursor: pointer;
+    color-scheme: dark;
 }
 
 .track-scroll-list {
@@ -1489,9 +1501,8 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     .header-actions::-webkit-scrollbar { display: none; }
     .header-actions > * { flex: 0 0 auto; }
 
-    /* Keep Android imports in the header beside the other mobile actions. */
-    .android-app #btnImportFiles { display: none; }
-    .android-app #btnOpenRipper { display: none !important; }
+    /* Android imports live in the header; collapse the empty sidebar controls. */
+    .android-app .sidebar-actions { display: none; }
 
     .header-scroll-cue {
         display: flex;

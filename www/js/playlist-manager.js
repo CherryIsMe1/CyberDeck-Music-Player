@@ -2,6 +2,12 @@
  * SNDeck Playlist & Track Manager
  * Handles track storage, custom playlists, sorting, filtering, shuffle, repeat, and localStorage persistence.
  */
+const LEGACY_STORAGE_MIGRATIONS = [
+    ['sndeck_playlists', 'edgerunners_playlists'],
+    ['sndeck_favorites', 'edgerunners_favorites'],
+    ['sndeck_tracks', 'edgerunners_tracks']
+];
+
 class CyberPlaylistManager {
     constructor() {
         this.tracks = new Map(); // id -> track object
@@ -27,12 +33,29 @@ class CyberPlaylistManager {
         this.onActivePlaylistChange = null;
         this.onTrackChange = null;
 
+        this.migrateLegacyStorage();
         this.loadFromStorage();
+    }
+
+    migrateLegacyStorage() {
+        try {
+            for (const [currentKey, legacyKey] of LEGACY_STORAGE_MIGRATIONS) {
+                const currentValue = localStorage.getItem(currentKey);
+                const legacyValue = localStorage.getItem(legacyKey);
+                if ((currentValue === null || currentValue === '') && legacyValue !== null) {
+                    localStorage.setItem(currentKey, legacyValue);
+                }
+            }
+
+            LEGACY_STORAGE_MIGRATIONS.forEach(([, legacyKey]) => localStorage.removeItem(legacyKey));
+        } catch (error) {
+            console.warn('Legacy library data was kept because it could not be migrated completely:', error);
+        }
     }
 
     loadFromStorage() {
         try {
-            const savedPlaylists = localStorage.getItem('edgerunners_playlists');
+            const savedPlaylists = localStorage.getItem('sndeck_playlists') || localStorage.getItem('edgerunners_playlists');
             if (savedPlaylists) {
                 const parsed = JSON.parse(savedPlaylists);
                 Object.keys(parsed).forEach(key => {
@@ -46,13 +69,13 @@ class CyberPlaylistManager {
                 });
             }
 
-            const savedFavs = localStorage.getItem('edgerunners_favorites');
+            const savedFavs = localStorage.getItem('sndeck_favorites') || localStorage.getItem('edgerunners_favorites');
             if (savedFavs) {
                 this.playlists.favorites.trackIds = JSON.parse(savedFavs);
             }
 
             // Restore persisted tracks (Tauri mode: recreate from file paths)
-            const savedTracks = localStorage.getItem('edgerunners_tracks');
+            const savedTracks = localStorage.getItem('sndeck_tracks') || localStorage.getItem('edgerunners_tracks');
             if (savedTracks) {
                 const trackList = JSON.parse(savedTracks);
                 const seenPaths = new Set();
@@ -96,8 +119,8 @@ class CyberPlaylistManager {
 
     saveToStorage() {
         try {
-            localStorage.setItem('edgerunners_playlists', JSON.stringify(this.playlists));
-            localStorage.setItem('edgerunners_favorites', JSON.stringify(this.playlists.favorites.trackIds));
+            localStorage.setItem('sndeck_playlists', JSON.stringify(this.playlists));
+            localStorage.setItem('sndeck_favorites', JSON.stringify(this.playlists.favorites.trackIds));
 
             // Persist track metadata (without cover art or file blobs — saves space).
             // Cover art is re-extracted from the actual audio files on startup via
@@ -107,7 +130,8 @@ class CyberPlaylistManager {
                 const { file, coverArt, ...rest } = track; // eslint-disable-line no-unused-vars
                 trackData.push(rest);
             });
-            localStorage.setItem('edgerunners_tracks', JSON.stringify(trackData));
+            localStorage.setItem('sndeck_tracks', JSON.stringify(trackData));
+            LEGACY_STORAGE_MIGRATIONS.forEach(([, legacyKey]) => localStorage.removeItem(legacyKey));
         } catch (e) {
             console.warn("Error writing to localStorage:", e);
         }

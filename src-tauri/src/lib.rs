@@ -117,7 +117,94 @@ async fn get_or_download_deno() -> Result<PathBuf, String> {
     Ok(deno_path)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
+async fn get_or_download_deno() -> Result<PathBuf, String> {
+    if let Some(path) = DENO_RUNTIME_PATH.get() {
+        return Ok(path.clone());
+    }
+
+    let in_path = tokio::task::spawn_blocking(|| deno_version_supported(std::path::Path::new("deno")))
+        .await
+        .unwrap_or(false);
+    if in_path {
+        let path = PathBuf::from("deno");
+        let _ = DENO_RUNTIME_PATH.set(path.clone());
+        return Ok(path);
+    }
+
+    let local_dir = dirs::data_local_dir()
+        .ok_or_else(|| "Cannot determine local data directory".to_string())?
+        .join("SNDeck")
+        .join("bin");
+    let deno_path = local_dir.join("deno");
+    if deno_version_supported(&deno_path) {
+        let _ = DENO_RUNTIME_PATH.set(deno_path.clone());
+        return Ok(deno_path);
+    }
+
+    let asset = match std::env::consts::ARCH {
+        "x86_64" => "x86_64-unknown-linux-gnu",
+        "aarch64" => "aarch64-unknown-linux-gnu",
+        architecture => {
+            return Err(format!(
+                "SNDeck cannot install Deno for Linux architecture {architecture}. Install Deno 2.3+ manually and retry."
+            ));
+        }
+    };
+    let download_url = format!(
+        "https://github.com/denoland/deno/releases/latest/download/deno-{asset}.zip"
+    );
+    std::fs::create_dir_all(&local_dir)
+        .map_err(|error| format!("Cannot create SNDeck tools directory: {error}"))?;
+
+    let zip_path = local_dir.join("deno-runtime.zip");
+    let zip_string = zip_path.to_string_lossy().to_string();
+    let download_status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("curl")
+            .args(["-fL", "--retry", "2", "-o", &zip_string, &download_url])
+            .status()
+    })
+    .await
+    .map_err(|error| format!("Deno download task failed: {error}"))?
+    .map_err(|error| format!("Could not start curl to download Deno: {error}"))?;
+    if !download_status.success() {
+        let _ = std::fs::remove_file(&zip_path);
+        return Err("Could not download Deno automatically. Check your internet connection and retry.".to_string());
+    }
+
+    let zip_string = zip_path.to_string_lossy().to_string();
+    let directory_string = local_dir.to_string_lossy().to_string();
+    let extract_status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("unzip")
+            .args(["-o", "-q", &zip_string, "-d", &directory_string])
+            .status()
+    })
+    .await
+    .map_err(|error| format!("Deno extraction task failed: {error}"))?
+    .map_err(|error| format!("Could not start unzip to install Deno: {error}"))?;
+    let _ = std::fs::remove_file(&zip_path);
+    if !extract_status.success() || !deno_path.exists() {
+        return Err("Could not extract Deno automatically. Install unzip or Deno 2.3+ manually, then retry.".to_string());
+    }
+
+    use std::os::unix::fs::PermissionsExt;
+    let mut permissions = std::fs::metadata(&deno_path)
+        .map_err(|error| format!("Cannot inspect the downloaded Deno binary: {error}"))?
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&deno_path, permissions)
+        .map_err(|error| format!("Cannot make the downloaded Deno binary executable: {error}"))?;
+
+    if !deno_version_supported(&deno_path) {
+        let _ = std::fs::remove_file(&deno_path);
+        return Err("The downloaded Deno binary could not run. Install Deno 2.3+ manually and retry.".to_string());
+    }
+
+    let _ = DENO_RUNTIME_PATH.set(deno_path.clone());
+    Ok(deno_path)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 async fn get_or_download_deno() -> Result<PathBuf, String> {
     if let Some(path) = DENO_RUNTIME_PATH.get() {
         return Ok(path.clone());
@@ -131,7 +218,7 @@ async fn get_or_download_deno() -> Result<PathBuf, String> {
         let _ = DENO_RUNTIME_PATH.set(path.clone());
         Ok(path)
     } else {
-        Err("Install Deno 2.3+ to enable full YouTube support, then retry.".to_string())
+        Err("Install Deno 2.3+ to enable YouTube support, then retry.".to_string())
     }
 }
 

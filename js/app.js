@@ -307,7 +307,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     let activeTheme = localStorage.getItem('sndeck_theme') || 'omi';
     if (!themes[activeTheme]) activeTheme = 'omi';
-    let coverMode = localStorage.getItem('sndeck_disc_view') || localStorage.getItem('edgerunners_cover_mode') || 'portrait';
+    const savedDiscView = localStorage.getItem('sndeck_disc_view');
+    const oldDiscView = localStorage.getItem('edgerunners_cover_mode');
+    let coverMode = savedDiscView || oldDiscView || 'portrait';
+    if (!savedDiscView && oldDiscView) localStorage.setItem('sndeck_disc_view', oldDiscView);
+    if (oldDiscView) localStorage.removeItem('edgerunners_cover_mode');
     if (coverMode === 'omi') coverMode = 'portrait';
     if (coverMode !== 'album') coverMode = 'portrait';
     elements.themeSelect.value = activeTheme;

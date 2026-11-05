@@ -89,6 +89,9 @@ jobs:
       - name: Initialize Android project
         run: cargo tauri android init
 
+      - name: Generate Android icons from the SNDeck logo
+        run: cargo tauri icon src-tauri/icons/icon.png
+
       - name: Build installable debug APK
         run: cargo tauri android build --apk --debug --target aarch64
 
