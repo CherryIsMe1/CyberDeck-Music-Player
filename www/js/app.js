@@ -898,7 +898,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     const isTauri = typeof window.__TAURI__ !== 'undefined';
     const isAndroidTauri = isTauri && /Android/i.test(navigator.userAgent);
-    if (isAndroidTauri) document.body.classList.add('android-app');
+    if (isAndroidTauri) {
+        document.body.classList.add('android-app');
+        if (elements.btnImportFolder) elements.btnImportFolder.hidden = true;
+        if (elements.btnOpenRipper) elements.btnOpenRipper.hidden = true;
+        const androidToolsNote = document.getElementById('androidToolsNote');
+        if (androidToolsNote) androidToolsNote.hidden = false;
+    }
 
     elements.btnImportFiles.addEventListener('click', async () => {
         window.CyberSound.playClick();
@@ -935,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
         if (isAndroidTauri) {
-            elements.folderInput.click();
+            alert('Android does not support folder selection in this app. Use ADD MUSIC to select one or more audio files.');
             return;
         }
         if (isTauri) {
@@ -1293,6 +1299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (elements.btnOpenRipper) {
         elements.btnOpenRipper.addEventListener('click', () => {
+            if (isAndroidTauri) return;
             window.CyberSound.playClick();
             populateRipperPlaylists();
             elements.ripperUrlInput.value = '';

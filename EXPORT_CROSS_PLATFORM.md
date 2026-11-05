@@ -25,4 +25,4 @@ Build an APK locally with:
 cargo tauri android build --apk
 ```
 
-Create a release from a version tag (for example `v1.5.7`). A future Linux job can attach a `.deb` asset to the same release.
+Create a release from a version tag (for example `v1.5.8`). A future Linux job can attach a `.deb` asset to the same release.
