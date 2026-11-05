@@ -3,7 +3,7 @@ name: SNDeck Android Build
 on:
   push:
     branches:
-      - SNDMobile
+      - main
   workflow_dispatch:
 
 permissions:
@@ -24,12 +24,13 @@ jobs:
           java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
 
       - name: Install Android SDK platform
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Set up Android NDK
         uses: nttld/setup-ndk@v1

@@ -1,14 +1,16 @@
-name: "SNDeck Windows Release"
+name: "SNDeck Cross-Platform Release"
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   # --------------------------------------------------------------------------
-  # WINDOWS 11 (.exe / .msi) BUILD
+  # WINDOWS (.exe / .msi) BUILD
   # --------------------------------------------------------------------------
   build-windows:
     permissions:
@@ -28,6 +30,75 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'SNDeck ${{ github.ref_name }}'
-          releaseBody: 'Windows installers for SNDeck.'
+          releaseBody: 'SNDeck installers. Choose the Windows installer or the Android debug-signed APK. The Android package is for sideload testing; a stable signing key is needed for production updates.'
           releaseDraft: false
           prerelease: false
+
+  build-android:
+    name: Build Android APK and attach to release
+    needs: build-windows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install Android SDK platform
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r29
+          link-to-sdk: true
+
+      - name: Export Android NDK paths
+        env:
+          NDK_PATH: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Initialize Android project
+        run: cargo tauri android init
+
+      - name: Build installable debug APK
+        run: cargo tauri android build --apk --debug --target aarch64
+
+      - name: Name Android release asset
+        run: |
+          apk_path="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
+          test -n "$apk_path"
+          cp "$apk_path" SNDeck-android-arm64-debug.apk
+
+      - name: Upload Android APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" SNDeck-android-arm64-debug.apk --clobber --repo "${GITHUB_REPOSITORY}"
