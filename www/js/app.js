@@ -902,8 +902,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('android-app');
         if (elements.btnImportFolder) elements.btnImportFolder.hidden = true;
         if (elements.btnOpenRipper) elements.btnOpenRipper.hidden = true;
-        const androidToolsNote = document.getElementById('androidToolsNote');
-        if (androidToolsNote) androidToolsNote.hidden = false;
     }
 
     elements.btnImportFiles.addEventListener('click', async () => {

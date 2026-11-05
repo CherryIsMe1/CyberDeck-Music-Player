@@ -1413,7 +1413,6 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
 
 .mobile-add-music { display: none; }
 .android-scroll-cue { display: none; }
-.android-tools-note { display: none; }
 
 @media (min-width: 993px) and (max-width: 1280px) {
     .header-bar { grid-template-columns: minmax(0, 1fr) auto; }
@@ -1472,19 +1471,6 @@ body[data-theme="blossom"] .sidebar-actions .btn-cyber-block:hover {
     .android-app #btnImportFiles { display: none; }
     .android-app #btnImportFolder,
     .android-app #btnOpenRipper { display: none !important; }
-
-    .android-app .android-tools-note {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 10px 12px;
-        border: 1px solid rgba(var(--omi-blue-rgb), .35);
-        background: rgba(var(--omi-blue-rgb), .06);
-        color: var(--cyber-text-dim);
-        font: 10px/1.5 'Share Tech Mono', monospace;
-    }
-
-    .android-app .android-tools-note strong { color: var(--omi-blue); letter-spacing: 1px; }
 
     .header-scroll-cue {
         display: flex;
