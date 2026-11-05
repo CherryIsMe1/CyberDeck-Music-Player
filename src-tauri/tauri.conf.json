@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/tooling/cli/schema.json",
   "productName": "SNDeck",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "identifier": "com.snakenation.cyberdeck",
   "build": {
     "frontendDist": "../www"
@@ -49,7 +49,7 @@
     "longDescription": "Local audio player and visualizer inspired by Snake Nation.",
     "linux": {
       "deb": {
-        "depends": ["curl", "unzip"]
+        "depends": ["curl", "unzip", "ffmpeg", "gstreamer1.0-plugins-good", "gstreamer1.0-libav"]
       }
     },
     "windows": {

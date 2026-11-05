@@ -90,8 +90,8 @@ class CyberPlaylistManager {
                         seenPaths.add(norm);
                     }
 
-                    // Cover art is always re-extracted from files on startup
-                    // (localStorage is too small for many track covers)
+                    // Ripper thumbnail URLs are persisted. Other cover art is
+                    // re-extracted from the audio file to avoid storing blobs.
 
                     if (typeof window.__TAURI__ !== 'undefined' && t.filePath) {
                         t.url = window.__TAURI__.core.convertFileSrc(t.filePath);
@@ -122,12 +122,15 @@ class CyberPlaylistManager {
             localStorage.setItem('sndeck_playlists', JSON.stringify(this.playlists));
             localStorage.setItem('sndeck_favorites', JSON.stringify(this.playlists.favorites.trackIds));
 
-            // Persist track metadata (without cover art or file blobs — saves space).
-            // Cover art is re-extracted from the actual audio files on startup via
-            // restoreTrackCover(), so we never store it in localStorage.
+            // Persist metadata without file blobs or temporary object URLs.
+            // Ripper thumbnails are small URLs and the embedded art may not be
+            // readable on every Linux audio format, so keep those URLs on disk.
             const trackData = [];
             this.tracks.forEach(track => {
                 const { file, coverArt, ...rest } = track; // eslint-disable-line no-unused-vars
+                if (track.isRipped && typeof coverArt === 'string' && /^https?:\/\//i.test(coverArt)) {
+                    rest.coverArt = coverArt;
+                }
                 trackData.push(rest);
             });
             localStorage.setItem('sndeck_tracks', JSON.stringify(trackData));
@@ -262,8 +265,11 @@ class CyberPlaylistManager {
                 artist: rippedMetadata.artist || metadata.artist || fallbackArtist,
                 album: rippedMetadata.album || metadata.album || 'Unknown Album',
                 year: rippedMetadata.year || metadata.year || '',
-                coverArt: metadata.coverArt || rippedMetadata.coverArt || null,
+                // Prefer the ripper's stable thumbnail URL over an object URL
+                // extracted from the file; object URLs stop working on restart.
+                coverArt: rippedMetadata.coverArt || metadata.coverArt || null,
                 duration: duration || Number(rippedMetadata.duration) || 0,
+                isRipped: Boolean(rippedMetadata.isRipped),
                 dateAdded: Date.now()
             };
 
