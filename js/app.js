@@ -45,6 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
         customThemeSecondary: document.getElementById('customThemeSecondary'),
         customThemeAccent: document.getElementById('customThemeAccent'),
         customThemeHighlight: document.getElementById('customThemeHighlight'),
+        customThemeBackground: document.getElementById('customThemeBackground'),
+        customThemePanel: document.getElementById('customThemePanel'),
+        customThemeText: document.getElementById('customThemeText'),
+        customThemeMutedText: document.getElementById('customThemeMutedText'),
+        customThemeBorder: document.getElementById('customThemeBorder'),
         btnPortraitSettings: document.getElementById('btnPortraitSettings'),
         portraitDialog: document.getElementById('portraitDialog'),
         portraitThemeName: document.getElementById('portraitThemeName'),
@@ -108,6 +113,94 @@ document.addEventListener('DOMContentLoaded', () => {
         modePills: document.querySelectorAll('.btn-mode-pill')
     };
 
+    // Resizable desktop columns. Keep the existing stacked layout on small screens.
+    const mainDeck = document.querySelector('.main-deck');
+    if (mainDeck && mainDeck.children.length === 3) {
+        const panels = Array.from(mainDeck.children);
+        const resizers = ['sidebar', 'tracklist'].map((target) => {
+            const resizer = document.createElement('div');
+            resizer.className = 'panel-resizer';
+            resizer.dataset.target = target;
+            resizer.tabIndex = 0;
+            resizer.setAttribute('role', 'separator');
+            resizer.setAttribute('aria-orientation', 'vertical');
+            resizer.setAttribute('aria-label', target === 'sidebar' ? 'Resize playlist panel' : 'Resize track list panel');
+            return resizer;
+        });
+        mainDeck.insertBefore(resizers[0], panels[1]);
+        mainDeck.insertBefore(resizers[1], panels[2]);
+
+        const savedSidebarWidth = Number(localStorage.getItem('sndeck_sidebar_width'));
+        const savedTracklistWidth = Number(localStorage.getItem('sndeck_tracklist_width'));
+        if (Number.isFinite(savedSidebarWidth) && savedSidebarWidth >= 190 && savedSidebarWidth <= 420) {
+            mainDeck.style.setProperty('--sidebar-width', `${savedSidebarWidth}px`);
+        }
+        if (Number.isFinite(savedTracklistWidth) && savedTracklistWidth >= 260 && savedTracklistWidth <= 560) {
+            mainDeck.style.setProperty('--tracklist-width', `${savedTracklistWidth}px`);
+        }
+
+        const getColumnWidth = (target) => {
+            const value = getComputedStyle(mainDeck).getPropertyValue(target === 'sidebar' ? '--sidebar-width' : '--tracklist-width');
+            return parseFloat(value) || (target === 'sidebar' ? 280 : 390);
+        };
+        const setColumnWidth = (target, requestedWidth, persist = true) => {
+            const sidebarWidth = getColumnWidth('sidebar');
+            const tracklistWidth = getColumnWidth('tracklist');
+            const maxCombinedWidth = Math.max(450, mainDeck.clientWidth - 360);
+            const minWidth = target === 'sidebar' ? 190 : 260;
+            const maxWidth = target === 'sidebar' ? 420 : 560;
+            const otherWidth = target === 'sidebar' ? tracklistWidth : sidebarWidth;
+            const width = Math.round(Math.max(minWidth, Math.min(maxWidth, maxCombinedWidth - otherWidth, requestedWidth)));
+            const property = target === 'sidebar' ? '--sidebar-width' : '--tracklist-width';
+            mainDeck.style.setProperty(property, `${width}px`);
+            const key = target === 'sidebar' ? 'sndeck_sidebar_width' : 'sndeck_tracklist_width';
+            if (persist) localStorage.setItem(key, String(width));
+            return width;
+        };
+
+        // Clamp stored values to the current window size so old settings cannot
+        // force the center player column off-screen after a resize.
+        setColumnWidth('sidebar', getColumnWidth('sidebar'), false);
+        setColumnWidth('tracklist', getColumnWidth('tracklist'), false);
+        window.addEventListener('resize', () => {
+            setColumnWidth('sidebar', getColumnWidth('sidebar'), false);
+            setColumnWidth('tracklist', getColumnWidth('tracklist'), false);
+            resizers.forEach((resizer) => resizer.setAttribute('aria-valuenow', String(getColumnWidth(resizer.dataset.target))));
+        });
+
+        resizers.forEach((resizer) => {
+            const target = resizer.dataset.target;
+            resizer.setAttribute('aria-valuenow', String(getColumnWidth(target)));
+            resizer.addEventListener('pointerdown', (event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                const startX = event.clientX;
+                const startWidth = getColumnWidth(target);
+                resizer.setPointerCapture(event.pointerId);
+                const onMove = (moveEvent) => {
+                    const direction = target === 'sidebar' ? 1 : -1;
+                    setColumnWidth(target, startWidth + (moveEvent.clientX - startX) * direction);
+                    resizer.setAttribute('aria-valuenow', String(getColumnWidth(target)));
+                };
+                const onEnd = () => {
+                    resizer.removeEventListener('pointermove', onMove);
+                    resizer.removeEventListener('pointerup', onEnd);
+                    resizer.removeEventListener('pointercancel', onEnd);
+                };
+                resizer.addEventListener('pointermove', onMove);
+                resizer.addEventListener('pointerup', onEnd);
+                resizer.addEventListener('pointercancel', onEnd);
+            });
+            resizer.addEventListener('keydown', (event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                const direction = (event.key === 'ArrowRight' ? 1 : -1) * (target === 'sidebar' ? 1 : -1);
+                const width = setColumnWidth(target, getColumnWidth(target) + direction * 16);
+                resizer.setAttribute('aria-valuenow', String(width));
+            });
+        });
+    }
+
     let isSeeking = false;
     let seekPointerId = null;
     let isMuted = false;
@@ -138,6 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = hex.slice(1);
         return `${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}`;
     };
+    const blendHex = (foreground, background, foregroundWeight) => {
+        const fg = [1, 3, 5].map(index => parseInt(foreground.slice(index, index + 2), 16));
+        const bg = [1, 3, 5].map(index => parseInt(background.slice(index, index + 2), 16));
+        return `#${fg.map((channel, index) => Math.round(channel * foregroundWeight + bg[index] * (1 - foregroundWeight)).toString(16).padStart(2, '0')).join('')}`;
+    };
     try {
         const savedThemes = JSON.parse(localStorage.getItem('sndeck_custom_themes') || '[]');
         if (Array.isArray(savedThemes)) {
@@ -163,7 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyCustomThemeColors(theme) {
         const properties = ['--omi-green', '--omi-blue', '--omi-pink', '--omi-purple', '--omi-yellow',
             '--omi-green-rgb', '--omi-blue-rgb', '--omi-pink-rgb', '--omi-purple-rgb', '--omi-yellow-rgb',
-            '--omi-green-glow', '--omi-blue-glow', '--omi-pink-glow', '--omi-purple-glow', '--cyber-panel-border'];
+            '--omi-green-glow', '--omi-blue-glow', '--omi-pink-glow', '--omi-purple-glow', '--cyber-panel-border',
+            '--cyber-dark-bg', '--cyber-panel', '--cyber-panel-hover', '--cyber-text', '--cyber-text-dim'];
         properties.forEach(property => document.body.style.removeProperty(property));
         if (!theme || !theme.custom) return;
         const colors = theme.colors;
@@ -175,6 +274,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.setProperty('--omi-yellow', colors.pink);
         document.body.style.setProperty('--omi-yellow-rgb', rgbFromHex(colors.pink));
         document.body.style.setProperty('--cyber-panel-border', `rgba(${rgbFromHex(colors.pink)}, .3)`);
+        const background = validThemeColor(colors.background) ? colors.background : '#07090e';
+        const panel = validThemeColor(colors.panel) ? colors.panel : '#0d101a';
+        const text = validThemeColor(colors.text) ? colors.text : '#edf3f7';
+        const mutedText = validThemeColor(colors.mutedText) ? colors.mutedText : blendHex(text, panel, .62);
+        const border = validThemeColor(colors.border) ? colors.border : colors.pink;
+        document.body.style.setProperty('--cyber-dark-bg', background);
+        document.body.style.setProperty('--cyber-panel', panel);
+        document.body.style.setProperty('--cyber-panel-hover', blendHex(panel, text, .92));
+        document.body.style.setProperty('--cyber-text', text);
+        document.body.style.setProperty('--cyber-text-dim', mutedText);
+        document.body.style.setProperty('--cyber-panel-border', `rgba(${rgbFromHex(border)}, .42)`);
     }
     function saveCustomThemes() {
         localStorage.setItem('sndeck_custom_themes', JSON.stringify(customThemes));
@@ -624,7 +734,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 green: elements.customThemePrimary.value,
                 blue: elements.customThemeSecondary.value,
                 pink: elements.customThemeAccent.value,
-                purple: elements.customThemeHighlight.value
+                purple: elements.customThemeHighlight.value,
+                background: elements.customThemeBackground.value,
+                panel: elements.customThemePanel.value,
+                text: elements.customThemeText.value,
+                mutedText: elements.customThemeMutedText.value,
+                border: elements.customThemeBorder.value
             }
         };
         customThemes.push(customTheme);

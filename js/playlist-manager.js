@@ -297,13 +297,26 @@ class CyberPlaylistManager {
     getAudioDuration(url) {
         return new Promise((resolve) => {
             const tempAudio = new Audio();
+            tempAudio.preload = 'metadata';
+            let settled = false;
+            let timeoutId;
+            const finish = (duration) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeoutId);
+                tempAudio.removeEventListener('loadedmetadata', onMetadata);
+                tempAudio.removeEventListener('error', onError);
+                tempAudio.removeAttribute('src');
+                tempAudio.load();
+                resolve(duration);
+            };
+            const onMetadata = () => finish(Number.isFinite(tempAudio.duration) ? tempAudio.duration : 0);
+            const onError = () => finish(0);
+            tempAudio.addEventListener('loadedmetadata', onMetadata);
+            tempAudio.addEventListener('error', onError);
+            // Some local formats take longer than 400 ms to expose their metadata.
+            timeoutId = setTimeout(() => finish(0), 2000);
             tempAudio.src = url;
-            tempAudio.addEventListener('loadedmetadata', () => {
-                resolve(tempAudio.duration || 0);
-            });
-            tempAudio.addEventListener('error', () => resolve(0));
-            // Timeout safety (fast so large folders import smoothly)
-            setTimeout(() => resolve(0), 400);
         });
     }
 

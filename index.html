@@ -327,7 +327,7 @@
             <h2 id="themeDialogTitle">CREATE CUSTOM THEME</h2>
             <button class="btn-cyber-icon portrait-close" id="btnCloseThemeDialog" type="button" aria-label="Close">×</button>
         </div>
-        <p>Choose a name and accent colors. The theme is saved only on this device. You can set its portrait with ART after creating it.</p>
+        <p>Choose accent and surface colors, then tune the main and muted text plus panel borders. The theme stays on this device. Set its portrait with ART after creating it.</p>
         <form id="customThemeForm">
             <label class="theme-field">THEME NAME
                 <input id="customThemeName" type="text" maxlength="24" required autocomplete="off" placeholder="My theme">
@@ -337,6 +337,11 @@
                 <label>SECONDARY<input id="customThemeSecondary" type="color" value="#0088ff"></label>
                 <label>ACCENT<input id="customThemeAccent" type="color" value="#ff1a75"></label>
                 <label>HIGHLIGHT<input id="customThemeHighlight" type="color" value="#b026ff"></label>
+                <label>BACKGROUND<input id="customThemeBackground" type="color" value="#07090e"></label>
+                <label>PANEL<input id="customThemePanel" type="color" value="#0d101a"></label>
+                <label>TEXT<input id="customThemeText" type="color" value="#edf3f7"></label>
+                <label>MUTED TEXT<input id="customThemeMutedText" type="color" value="#8b99ae"></label>
+                <label>BORDER<input id="customThemeBorder" type="color" value="#ff1a75"></label>
             </div>
             <div class="portrait-dialog-actions">
                 <button class="btn-cyber-block cyber-cut-sm" type="submit">CREATE THEME</button>

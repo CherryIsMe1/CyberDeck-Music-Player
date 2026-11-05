@@ -232,9 +232,15 @@ async fn read_audio_files_in_dir(dir_path: String) -> Result<Vec<String>, String
             if let Ok(entries) = std::fs::read_dir(dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.is_dir() {
+                    // Do not follow directory symlinks: a selected folder may
+                    // contain links back to a parent (or to unrelated folders).
+                    let file_type = match entry.file_type() {
+                        Ok(file_type) => file_type,
+                        Err(_) => continue,
+                    };
+                    if file_type.is_dir() {
                         scan_dir(&path, paths);
-                    } else if path.is_file() {
+                    } else if file_type.is_file() {
                         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                             let ext_lower = ext.to_lowercase();
                             if matches!(

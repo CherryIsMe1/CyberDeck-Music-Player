@@ -9,7 +9,7 @@ SNDeck is a desktop music player for local audio libraries. It includes playlist
 - Drag the playback bar to seek. Hold the record or `P` to spin it up to 5×; a quick `P` press skips to the previous track.
 - Remove a track from the library to hide it throughout SNDeck; its audio file stays on the computer.
 - Use four themes: SN, ER, Basic, and Blossom.
-- Create local custom themes with your own name and accent colors, then choose a separate portrait for each one. Custom themes and artwork stay on the device.
+- Create local custom themes with your own name, four accent colors, background, panel, main and muted text, and border colors, then choose a separate portrait for each one. Custom themes and artwork stay on the device.
 - Choose a separate custom portrait for each theme from the `ART` control. Images are resized and saved locally in the app; they are not uploaded or copied into the repository.
 - Download audio from YouTube videos and playlists in the Windows build. Downloads are saved to `Music/SNDeck` and added to the selected playlist.
 
