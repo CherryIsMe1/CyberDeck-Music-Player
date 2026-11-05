@@ -1,21 +1,23 @@
-name: "SNDeck Cross-Platform Release"
+name: SNDeck Build and Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  # --------------------------------------------------------------------------
-  # WINDOWS (.exe / .msi) BUILD
-  # --------------------------------------------------------------------------
   build-windows:
+    name: Build Windows installers and create release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
     permissions:
       contents: write
-    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,20 +25,21 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Tauri Desktop Application
+      - name: Build Tauri Windows application
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'SNDeck ${{ github.ref_name }}'
-          releaseBody: 'SNDeck installers. Choose the Windows installer or the Android debug-signed APK. The Android package is for sideload testing; a stable signing key is needed for production updates.'
+          releaseBody: 'SNDeck downloads: Windows installers and an Android APK. The Android APK is debug-signed for sideload testing; a stable signing key is needed for production updates.'
           releaseDraft: false
           prerelease: false
 
   build-android:
-    name: Build Android APK and attach to release
+    name: Build Android APK
     needs: build-windows
+    if: ${{ always() && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && needs.build-windows.result == 'success')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -92,13 +95,23 @@ jobs:
       - name: Build installable debug APK
         run: cargo tauri android build --apk --debug --target aarch64
 
-      - name: Name Android release asset
+      - name: Name Android APK
         run: |
           apk_path="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
           test -n "$apk_path"
           cp "$apk_path" SNDeck-android-arm64-debug.apk
 
-      - name: Upload Android APK to GitHub Release
+      - name: Upload APK for main-branch testing
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNDeck-android-arm64-debug
+          path: SNDeck-android-arm64-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach APK to the version release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${GITHUB_REF_NAME}" SNDeck-android-arm64-debug.apk --clobber --repo "${GITHUB_REPOSITORY}"
