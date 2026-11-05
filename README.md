@@ -36,12 +36,12 @@ cargo install tauri-cli --version "^2.0"
 cargo tauri build
 ```
 
-The source version is `1.6.0`. Pushing a version tag beginning with `v` starts one GitHub Actions release workflow; it builds Windows installers and an Android APK from the same commit and attaches both to the release. Ordinary pushes to `main` do not start a second build. The Android APK is debug-signed for sideload testing. Add a persistent Android signing key in GitHub Actions secrets before using it for production distribution or seamless app updates. A Linux `.deb` package can be added to the same release workflow later.
+The source version is `1.6.1`. Pushing a version tag beginning with `v` starts one GitHub Actions release workflow; it builds Windows installers and an Android APK from the same commit and attaches both to the release. Ordinary pushes to `main` do not start a second build. The Android APK is debug-signed for sideload testing. Add a persistent Android signing key in GitHub Actions secrets before using it for production distribution or seamless app updates. A Linux `.deb` package can be added to the same release workflow later.
 
 ## Platform features
 
 - **Windows:** The built-in Ripper uses `yt-dlp` and Deno to download audio. It provisions these tools on first use and requires an internet connection. Folder import is supported.
-- **Android:** The built-in Ripper is not available. Use an external downloader, then import downloaded audio with **ADD MUSIC** (multiple files can be selected). Folder picking is not supported by the current Android file picker.
+- **Android:** The built-in Ripper is not available. Use an external downloader, then import downloaded audio with **ADD MUSIC**. **ADD FOLDER** uses Android's system folder picker, scans nested folders, and copies supported audio into SNDeck storage.
 
 If Windows still shows an old taskbar icon after an update, unpin the existing shortcut and pin the newly installed SNDeck shortcut.
 

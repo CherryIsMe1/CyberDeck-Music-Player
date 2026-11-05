@@ -900,7 +900,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const isAndroidTauri = isTauri && /Android/i.test(navigator.userAgent);
     if (isAndroidTauri) {
         document.body.classList.add('android-app');
-        if (elements.btnImportFolder) elements.btnImportFolder.hidden = true;
         if (elements.btnOpenRipper) elements.btnOpenRipper.hidden = true;
     }
 
@@ -939,7 +938,34 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.btnImportFolder.addEventListener('click', async () => {
         window.CyberSound.playClick();
         if (isAndroidTauri) {
-            alert('Android does not support folder selection in this app. Use ADD MUSIC to select one or more audio files.');
+            const originalLabel = elements.btnImportFolder.innerHTML;
+            elements.btnImportFolder.disabled = true;
+            elements.btnImportFolder.textContent = 'SCANNING FOLDER...';
+            try {
+                const result = await window.__TAURI__.core.invoke('import_audio_folder');
+                if (!result) return;
+                const audioPaths = result.paths || [];
+                if (audioPaths.length > 0) {
+                    const added = await window.PlaylistManager.addFilesFromPaths(audioPaths);
+                    renderPlaylists();
+                    renderTracks();
+                    if (!window.PlaylistManager.currentTrackId && added.length > 0) {
+                        playTrack(added[0]);
+                    }
+                    window.CyberSound.playSuccess();
+                }
+                if (result.failedFiles > 0) {
+                    alert(`Imported ${audioPaths.length} audio file(s). ${result.failedFiles} could not be read.`);
+                } else if (audioPaths.length === 0) {
+                    alert('No supported audio files were found in that folder.');
+                }
+            } catch (err) {
+                console.error('Android folder import failed:', err);
+                alert(`Could not import this folder: ${err.message || err}`);
+            } finally {
+                elements.btnImportFolder.disabled = false;
+                elements.btnImportFolder.innerHTML = originalLabel;
+            }
             return;
         }
         if (isTauri) {

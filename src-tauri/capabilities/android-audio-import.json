@@ -5,6 +5,7 @@
   "windows": ["*"],
   "platforms": ["android"],
   "permissions": [
+    "android-fs:default",
     "fs:allow-open",
     "fs:allow-write",
     "fs:allow-mkdir",

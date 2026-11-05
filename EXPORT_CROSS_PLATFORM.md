@@ -7,7 +7,7 @@ The Android APK is debug-signed for sideload testing; production releases and se
 ## Platform differences
 
 - **Windows:** Supports folder import and the built-in `yt-dlp`/Deno Ripper.
-- **Android:** Imports one or more selected audio files into app-private storage. The current Tauri Android picker does not support folder selection, and the built-in Ripper is Windows-only. Use an external downloader, then import its audio files with **ADD MUSIC**.
+- **Android:** Imports selected audio files into app-private storage. **ADD FOLDER** uses the Android Storage Access Framework to select and scan a folder tree, including subfolders. The built-in Ripper is Windows-only; use an external downloader, then import its audio files with **ADD MUSIC**.
 
 Linux `.deb` packaging can be added to this release workflow later. See [README.md](README.md) for features and prerequisites.
 
@@ -24,4 +24,4 @@ Build an APK locally with:
 cargo tauri android build --apk
 ```
 
-Create a release from a version tag (for example `v1.6.0`). A future Linux job can attach a `.deb` asset to the same release.
+Create a release from a version tag (for example `v1.6.1`). A future Linux job can attach a `.deb` asset to the same release.

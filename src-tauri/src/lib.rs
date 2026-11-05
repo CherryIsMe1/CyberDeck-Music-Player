@@ -259,6 +259,176 @@ async fn read_audio_files_in_dir(dir_path: String) -> Result<Vec<String>, String
     .map_err(|e| format!("Task error: {}", e))?
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AndroidFolderImportResult {
+    paths: Vec<String>,
+    failed_files: usize,
+}
+
+#[cfg(target_os = "android")]
+fn is_supported_audio_file(name: &str) -> bool {
+    std::path::Path::new(name)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "mp3" | "m4a" | "flac" | "wav" | "ogg" | "aac" | "webm" | "opus"
+            )
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "android")]
+fn safe_audio_path_component(name: &str) -> String {
+    let safe: String = name
+        .chars()
+        .map(|character| {
+            if character.is_control()
+                || matches!(character, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+            {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect();
+    let safe = safe.trim().trim_matches('.');
+    if safe.is_empty() {
+        "audio".to_string()
+    } else {
+        safe.to_string()
+    }
+}
+
+/// Opens Android's Storage Access Framework folder picker and copies supported audio
+/// into app-private storage, preserving nested folders and returning stable file paths.
+#[tauri::command]
+async fn import_audio_folder(
+    app: tauri::AppHandle,
+) -> Result<Option<AndroidFolderImportResult>, String> {
+    #[cfg(target_os = "android")]
+    {
+        use tauri::Manager;
+        use tauri_plugin_android_fs::{AndroidFsExt, Entry};
+
+        let api = app.android_fs_async();
+        let Some(root_uri) = api
+            .file_picker()
+            .pick_dir(None, false)
+            .await
+            .map_err(|error| format!("Could not open Android folder picker: {error}"))?
+        else {
+            return Ok(None);
+        };
+
+        let audio_root = app
+            .path()
+            .app_local_data_dir()
+            .map_err(|error| format!("Could not locate SNDeck storage: {error}"))?
+            .join("audio");
+        std::fs::create_dir_all(&audio_root)
+            .map_err(|error| format!("Could not create SNDeck audio folder: {error}"))?;
+
+        let mut pending = vec![(root_uri, std::path::PathBuf::new(), 0usize)];
+        let mut imported_paths = Vec::new();
+        let mut failed_files = 0usize;
+
+        while let Some((directory_uri, relative_directory, depth)) = pending.pop() {
+            if depth > 32 {
+                continue;
+            }
+            let entries = match api.read_dir(&directory_uri).await {
+                Ok(entries) => entries,
+                Err(error) => {
+                    failed_files += 1;
+                    eprintln!("[SNDeck] Could not scan a folder: {error}");
+                    continue;
+                }
+            };
+
+            for entry in entries {
+                match entry {
+                    Entry::Dir { uri, name, .. } => pending.push((
+                        uri,
+                        relative_directory.join(safe_audio_path_component(&name)),
+                        depth + 1,
+                    )),
+                    Entry::File { uri, name, .. } if is_supported_audio_file(&name) => {
+                        let destination = audio_root
+                            .join(&relative_directory)
+                            .join(safe_audio_path_component(&name));
+                        if destination.exists() {
+                            imported_paths.push(destination.to_string_lossy().to_string());
+                            continue;
+                        }
+                        if let Some(parent) = destination.parent() {
+                            if let Err(error) = std::fs::create_dir_all(parent) {
+                                failed_files += 1;
+                                eprintln!("[SNDeck] Could not create audio import folder: {error}");
+                                continue;
+                            }
+                        }
+
+                        let mut source = match api.open_file_readable(&uri).await {
+                            Ok(file) => file,
+                            Err(error) => {
+                                failed_files += 1;
+                                eprintln!("[SNDeck] Could not open selected audio file: {error}");
+                                continue;
+                            }
+                        };
+                        let destination_for_copy = destination.clone();
+                        let copied = tokio::task::spawn_blocking(move || {
+                            let mut target = match std::fs::OpenOptions::new()
+                                .write(true)
+                                .create_new(true)
+                                .open(&destination_for_copy)
+                            {
+                                Ok(file) => file,
+                                Err(error) => return Err(error.to_string()),
+                            };
+                            if let Err(error) = std::io::copy(&mut source, &mut target)
+                                .and_then(|_| std::io::Write::flush(&mut target))
+                            {
+                                drop(target);
+                                let _ = std::fs::remove_file(&destination_for_copy);
+                                return Err(error.to_string());
+                            }
+                            Ok(())
+                        })
+                        .await
+                        .map_err(|error| format!("Audio import task failed: {error}"))?;
+
+                        match copied {
+                            Ok(()) => imported_paths.push(destination.to_string_lossy().to_string()),
+                            Err(error) => {
+                                failed_files += 1;
+                                eprintln!("[SNDeck] Could not copy audio file: {error}");
+                            }
+                        }
+                    }
+                    Entry::File { .. } => {}
+                    _ => {}
+                }
+            }
+        }
+
+        imported_paths.sort();
+        Ok(Some(AndroidFolderImportResult {
+            paths: imported_paths,
+            failed_files,
+        }))
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Err("Android folder import is only available on Android.".to_string())
+    }
+}
+
 /// Native command invoked from frontend: window.__TAURI__.core.invoke('rip_audio_stream', { url, quality })
 #[tauri::command]
 async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -> Result<Vec<RippedTrackResult>, String> {
@@ -479,13 +649,19 @@ async fn rip_audio_stream(app: tauri::AppHandle, url: String, quality: String) -
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_android_fs::init());
+
+    builder
         .invoke_handler(tauri::generate_handler![
             rip_audio_stream,
-            read_audio_files_in_dir
+            read_audio_files_in_dir,
+            import_audio_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running SNDeck player");
