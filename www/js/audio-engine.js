@@ -101,7 +101,7 @@ class CyberAudioEngine {
         });
     }
 
-    async loadTrack(url) {
+    async loadTrack(url, filePath = null) {
         this.initContext();
         if (this.ctx && this.ctx.state === 'suspended') {
             await this.ctx.resume();
@@ -114,16 +114,10 @@ class CyberAudioEngine {
         const isTauriAssetUrl = /^https?:\/\/asset\.localhost\//i.test(url)
             || /^asset:\/\/localhost\//i.test(url);
 
-        // WebKitGTK's media loader cannot reliably play files directly from
-        // Tauri's custom asset protocol. Fetch the allowed asset and give the
-        // audio element a blob URL, which WebKitGTK can decode and seek.
-        if (isLinuxTauri && isTauriAssetUrl) {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Could not load local audio (HTTP ${response.status}).`);
-            }
-            const blob = await response.blob();
-            playbackUrl = URL.createObjectURL(blob);
+        // WebKitGTK cannot reliably use Tauri's asset protocol as a media
+        // source. A loopback HTTP URL supports streaming and byte-range seeks.
+        if (isLinuxTauri && isTauriAssetUrl && filePath) {
+            playbackUrl = await window.__TAURI__.core.invoke('local_audio_url', { filePath });
         }
 
         if (this.currentObjectUrl) {

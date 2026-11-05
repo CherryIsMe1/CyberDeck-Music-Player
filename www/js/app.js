@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        await window.AudioEngine.loadTrack(track.url);
+        await window.AudioEngine.loadTrack(track.url, track.filePath || null);
         await window.AudioEngine.play();
         renderTracks();
     }

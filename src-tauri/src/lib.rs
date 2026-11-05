@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 use tauri::Emitter;
+mod local_audio;
+use local_audio::LocalAudioServer;
 
 static DENO_RUNTIME_PATH: OnceLock<PathBuf> = OnceLock::new();
 static YTDLP_EXECUTABLE_PATH: OnceLock<PathBuf> = OnceLock::new();
@@ -765,6 +767,9 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init());
 
+    #[cfg(target_os = "linux")]
+    let builder = builder.manage(LocalAudioServer::start().expect("failed to start local audio server"));
+
     #[cfg(target_os = "android")]
     let builder = builder.plugin(tauri_plugin_android_fs::init());
 
@@ -772,7 +777,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             rip_audio_stream,
             read_audio_files_in_dir,
-            import_audio_folder
+            import_audio_folder,
+            local_audio::local_audio_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running SNDeck player");
